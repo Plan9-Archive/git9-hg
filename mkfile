@@ -9,6 +9,6 @@ OFILES=\
 	pack.$O\
 	util.$O\
 
-HEADERS=git.h
+HFILES=git.h
 
 </sys/src/cmd/mkmany

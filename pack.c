@@ -4,17 +4,6 @@
 
 static int readpacked(Biobuf *, Object *);
 
-static int
-slurpdir(char *p, Dir **d)
-{
-	int r, f;
-
-	if((f = open(p, OREAD)) == -1)
-		return -1;
-	r = dirreadall(f, d);
-	close(f);
-	return r;
-}
 
 static int
 preadbe32(Biobuf *b, int *v, vlong off)
@@ -156,7 +145,7 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 static int
 readrdelta(Biobuf *f, Object *o, vlong n)
 {
-	Object b;
+	Object *b;
 	Hash h;
 	char *d;
 
@@ -167,10 +156,11 @@ readrdelta(Biobuf *f, Object *o, vlong n)
 		goto error;
 	if(decompress(&d, f, nil) == -1)
 		goto error;
-	if(readobject(&b, h) == -1)
+	if((b = readobject(h)) == nil)
 		goto error;
-	if(applydelta(o, &b, d, n) == -1)
+	if(applydelta(o, b, d, n) == -1)
 		goto error;
+	freeobject(b);
 	return 0;
 error:
 	print("could not read rdelta: %r\n");
@@ -288,25 +278,25 @@ readloose(Biobuf *f, Object *o)
 	vlong sz, n;
 	int l;
 
-	p = types;
 	n = decompress(&d, f, nil);
 	if(n == -1)
 		return -1;
 
 	s = d;
-	while(1){
-		if(!p->tag){
-			free(o->data);
-			return -1;
-		}
+	o->type = GNone;
+	for(p = types; p->tag; p++){
 		l = strlen(p->tag);
 		if(strncmp(s, p->tag, l) == 0){
 			s += l;
 			o->type = p->type;
-			while(isspace(*s))
+			while(!isspace(*s))
 				s++;
 			break;
 		}
+	}
+	if(o->type == GNone){
+		free(o->data);
+		return -1;
 	}
 	sz = strtol(s, &e, 0);
 	if(e == s || *e++ != 0){
@@ -321,6 +311,7 @@ readloose(Biobuf *f, Object *o)
 	o->data = e + 1;
 	o->all = d;
 	return 0;
+
 error:
 	free(d);
 	return -1;
@@ -407,31 +398,33 @@ notfound:
 }
 
 
-int
-readobject(Object *obj, Hash h)
+Object*
+readobject(Hash h)
 {
 	char path[Pathmax];
 	char pack[Pathmax];
 	char hbuf[41];
 	Biobuf *f;
-	int l, i, n, ret;
+	Object *obj, *ret;
+	int l, i, n;
 	vlong o;
 	Dir *d;
 
-	ret = -1;
+	d = nil;
+	ret = nil;
+	obj = emalloc(sizeof(Object));
 	obj->hash = h;
 	snprint(hbuf, sizeof(hbuf), "%H", h);
 	snprint(path, sizeof(path), ".git/objects/%c%c/%s", hbuf[0], hbuf[1], hbuf + 2);
 	if((f = Bopen(path, OREAD)) != nil){
-		if(readloose(f, obj) == -1){
-			Bterm(f);
-			return -1;
-		}
-		return 0;
+		if(readloose(f, obj) == -1)
+			goto error;
+		Bterm(f);
+		return obj;
 	}
 
 	if ((n = slurpdir(".git/objects/pack", &d)) == -1)
-		return -1;
+		goto error;
 	o = -1;
 	l = 0;
 	for(i = 0; i < n; i++){
@@ -450,10 +443,11 @@ readobject(Object *obj, Hash h)
 		break;
 	}
 
-	if (o == -1)
-		return -1;
+	if (obj == nil){
+		f = nil;
+		goto error;
+	}
 
-	f = nil;
 	if(snprint(pack, sizeof(pack), ".git/objects/pack/%.*s.pack", l - 4, d[i].name) >= sizeof(path))
 		goto error;
 	if((f = Bopen(pack, OREAD)) == nil)
@@ -465,14 +459,17 @@ readobject(Object *obj, Hash h)
 	ret = 0;
 
 error:
-	Bterm(f);
+	if(f != nil)
+		Bterm(f);
 	free(d);
+	free(obj);
 	return ret;
 }
 
 void
 freeobject(Object *o)
 {
-	if(o->all)
-		free(o->all);
+	if(!o)
+		return;
+	free(o->all);
 }
