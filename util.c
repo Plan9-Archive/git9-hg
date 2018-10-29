@@ -15,6 +15,28 @@ charval(int c, int *err)
 	return -1;
 }
 
+void *
+emalloc(ulong n)
+{
+	void *v;
+	
+	v = mallocz(n, 1);
+	if(v == nil)
+		sysfatal("malloc: %r");
+	setmalloctag(v, getcallerpc(&n));
+	return v;
+}
+
+char*
+estrdup(char *s)
+{
+	s = strdup(s);
+	if(s == nil)
+		sysfatal("strdup: %r");
+	setmalloctag(s, getcallerpc(&s));
+	return s;
+}
+
 int
 Hfmt(Fmt *fmt)
 {
@@ -109,6 +131,50 @@ hparse(Hash *h, char *b)
 	}
 	return 0;
 }
+
+int
+slurpdir(char *p, Dir **d)
+{
+	int r, f;
+
+	if((f = open(p, OREAD)) == -1)
+		return -1;
+	r = dirreadall(f, d);
+	close(f);
+	return r;
+}
+
+int
+slurp(char *path, char **ret)
+{
+	int f, n, o, s;
+	char *b, *nb;
+
+	o = 0;
+	s = 64;
+	b = emalloc(s + 1);
+	f = open(path, OREAD);
+	while(1){
+		n = read(f, b + o, s - o);
+		if(n == -1){
+			free(b);
+			return -1;
+		}
+		if(n == 0)
+			break;
+		o += n;
+		if(o == s){
+			s *= 2;
+			nb = realloc(b, s + 1);
+			if(!nb)
+				sysfatal("out of memory");
+			b = nb;
+		}
+	}
+	b[o] = 0;
+	*ret = b;
+	return o;
+}			
 
 int
 bappend(void *p, void *src, int len)

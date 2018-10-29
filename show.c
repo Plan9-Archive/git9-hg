@@ -5,7 +5,7 @@
 void
 main(int argc, char **argv)
 {
-	Object o;
+	Object *o;
 	Hash h;
 	int i;
 
@@ -15,7 +15,8 @@ main(int argc, char **argv)
 
 	for(i = 0; i < argc; i++){
 		hparse(&h, argv[i]);
-		readobject(&o, h);
-		print("%O\n", &o);
+		o = readobject(h);
+		print("%O\n", o);
+		freeobject(o);
 	}
 }

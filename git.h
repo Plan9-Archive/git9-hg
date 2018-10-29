@@ -40,6 +40,17 @@ struct Object {
 	vlong size;
 	char *data;
 	char *all;
+
+	/* Commit */
+	Hash *parents;
+	int nparents;
+	Hash tree;
+	char *author;
+	char *msg;
+
+	/* Tree */
+	Dir *ents;
+	int nents;
 };
 
 #define GETBE32(b)\
@@ -84,9 +95,17 @@ struct Object {
 int Hfmt(Fmt*);
 int Tfmt(Fmt*);
 int Ofmt(Fmt*);
+
 void gitinit(void);
-int hparse(Hash *, char *);
-int readobject(Object *, Hash);
+
+/* object io */
+Object* readobject(Hash);
 void freeobject(Object *);
+
+/* util functions */
+void *emalloc(ulong);
+char *estrdup(char *);
+int slurpdir(char *, Dir **);
+int hparse(Hash *, char *);
 int bdecompress(Buf *, Biobuf *, vlong *);
 int decompress(void **, Biobuf *, vlong *);
