@@ -5,6 +5,7 @@
 static int readpacked(Biobuf *, Object *);
 
 
+
 static int
 preadbe32(Biobuf *b, int *v, vlong off)
 {
@@ -308,7 +309,7 @@ readloose(Biobuf *f, Object *o)
 		goto error;
 	}
 	o->size = sz;
-	o->data = e + 1;
+	o->data = e;
 	o->all = d;
 	return 0;
 
@@ -466,10 +467,170 @@ error:
 	return ret;
 }
 
+static int
+scanword(char **str, int *nstr, char *buf, int nbuf)
+{
+	char *p;
+	int n, r;
+
+	r = -1;
+	p = *str;
+	n = *nstr;
+	while(n && isblank(*p)){
+		n--;
+		p++;
+	}
+
+	for(; n && !isspace(*p); p++, n--){
+		r = 0;
+		if(nbuf > 1){
+			*buf++ = *p;
+			nbuf--;
+		}
+	}
+	*buf = 0;
+	*str = p;
+	*nstr = n;
+	return r;
+}
+
+static int
+nextline(char **str, int *nstr)
+{
+	while(*nstr && isblank(**str)){
+		(*nstr)--;
+		(*str)++;
+	}
+	if(*nstr && **str == '\n'){
+		(*nstr)--;
+		(*str)++;
+		return 1;
+	}
+	return 0;
+}
+
+static int
+parseauthor(char **str, int *nstr, char **name, vlong *time)
+{
+	char buf[128];
+	Resub m[4];
+	int nm, ne;
+	char *e;
+
+	memset(m, 0, sizeof(m));
+	for(e = *str; *e != '\n'; e++){
+		ne = e - *str;
+		if(ne == *nstr || ne == sizeof(buf))
+			break;
+		buf[ne] = *e;
+	}
+	if(!regexec(authorpat, buf, m, nelem(m)))
+		sysfatal("invalid author line\n");
+	nm = m[1].ep - m[1].sp;
+	*name = emalloc(nm + 1);
+	memcpy(*name, m[1].sp, nm);
+	
+	nm = m[2].ep - m[2].sp;
+	memcpy(buf, m[2].sp, nm);
+	buf[nm] = 0;
+	*time = atoll(buf);
+
+	nm = m[0].ep - m[0].sp;
+	*str += nm;
+	*nstr -= nm;
+	return 0;
+}
+static void
+parsecommit(Object *o)
+{
+	char *p, buf[128];
+	int np;
+
+	p = o->data;
+	np = o->size;
+	while(1){
+		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
+			break;
+		if(strcmp(buf, "tree") == 0){
+			if(scanword(&p, &np, buf, sizeof(buf)) == -1)
+				sysfatal("invalid commit: tree missing");
+			if(hparse(&o->tree, buf) == -1)
+				sysfatal("invalid commit: garbled tree");
+		}else if(strcmp(buf, "parent") == 0){
+			if(scanword(&p, &np, buf, sizeof(buf)) == -1)
+				sysfatal("invalid commit: missing parent");
+			o->parent = realloc(o->parent, ++o->nparent * sizeof(Hash));
+			if(!o->parent)
+				sysfatal("unable to malloc: %r");
+			if(hparse(&o->parent[o->nparent], buf) == -1)
+				sysfatal("invalid commit: garbled parent");
+		}else if(strcmp(buf, "author") == 0){
+			parseauthor(&p, &np, &o->author, &o->mtime);
+		}else if(strcmp(buf, "committer") == 0){
+			parseauthor(&p, &np, &o->author, &o->mtime);
+		}else{
+			print("unknown commit header '%s' (len: %ld)\n", buf, strlen(buf));
+		}
+		nextline(&p, &np);
+	}
+	while (isspace(*p))
+		p++;
+	o->msg = p;
+	print("Commit messsage: %s\n", o->msg);
+}
+
+static void
+parsetree(Object *o)
+{
+	char *p, buf[128];
+	int np, nn;
+	Dirent *t;
+
+	p = o->data;
+	np = o->size;
+	while(np > 0){
+		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
+			break;
+		while(np && isblank(*p)){
+			p++;
+			np--;
+		}
+		o->ents = realloc(o->ents, ++o->nents * sizeof(Dirent));
+		t = &o->ents[o->nents - 1];
+		t->mode = strtol(buf, nil, 8);
+		t->name = p;
+		nn = strlen(p) + 1;
+		p += nn;
+		np -= nn;
+		if(np < sizeof(t->h.h))
+			sysfatal("malformed tree %H, remaining %d (%s)", o->hash, np, p);
+		memcpy(t->h.h, p, sizeof(t->h.h));
+		p += sizeof(t->h.h);
+		np -= sizeof(t->h.h);
+	}
+}
+
+static void
+parsetag(Object *)
+{
+}
+
+void
+parseobject(Object *o)
+{
+	switch(o->type){
+	case GTree:	parsetree(o);	break;
+	case GCommit:	parsecommit(o);	break;
+	case GTag:	parsetag(o);	break;
+	default:	break;
+	}
+}
+
 void
 freeobject(Object *o)
 {
 	if(!o)
 		return;
 	free(o->all);
+	free(o);
 }

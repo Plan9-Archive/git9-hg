@@ -3,11 +3,13 @@
 #include <mp.h>
 #include <libsec.h>
 #include <flate.h>
+#include <regexp.h>
 
 typedef struct Hash Hash;
 typedef struct Object Object;
 typedef struct Pack Pack;
 typedef struct Buf Buf;
+typedef struct Dirent Dirent;
 
 enum {
 	Pathmax=512,
@@ -34,6 +36,12 @@ struct Hash {
 	uchar h[20];
 };
 
+struct Dirent {
+	char *name;
+	int mode;
+	Hash h;
+};
+
 struct Object {
 	Hash hash;
 	Type type;
@@ -42,14 +50,17 @@ struct Object {
 	char *all;
 
 	/* Commit */
-	Hash *parents;
-	int nparents;
+	Hash *parent;
+	int nparent;
 	Hash tree;
 	char *author;
+	char *committer;
 	char *msg;
+	vlong ctime;
+	vlong mtime;
 
 	/* Tree */
-	Dir *ents;
+	Dirent *ents;
 	int nents;
 };
 
@@ -88,6 +99,10 @@ struct Object {
 		(b)[7] = (n) >> 0; \
 	} while(0)
 
+#define isblank(c) \
+	(((c) != '\n') && isspace(c))
+
+extern Reprog *authorpat;
 
 #pragma varargck type "H" Hash
 #pragma varargck type "T" Type
@@ -100,6 +115,7 @@ void gitinit(void);
 
 /* object io */
 Object* readobject(Hash);
+void parseobject(Object *);
 void freeobject(Object *);
 
 /* util functions */

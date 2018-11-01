@@ -6,8 +6,8 @@ void
 main(int argc, char **argv)
 {
 	Object *o;
-	Hash h;
 	int i;
+	Hash h;
 
 	gitinit();
 	ARGBEGIN{
@@ -16,6 +16,7 @@ main(int argc, char **argv)
 	for(i = 0; i < argc; i++){
 		hparse(&h, argv[i]);
 		o = readobject(h);
+		parseobject(o);
 		print("%O\n", o);
 		freeobject(o);
 	}
