@@ -398,75 +398,6 @@ notfound:
 	return -1;		
 }
 
-
-Object*
-readobject(Hash h)
-{
-	char path[Pathmax];
-	char pack[Pathmax];
-	char hbuf[41];
-	Biobuf *f;
-	Object *obj, *ret;
-	int l, i, n;
-	vlong o;
-	Dir *d;
-
-	d = nil;
-	ret = nil;
-	obj = emalloc(sizeof(Object));
-	obj->hash = h;
-	snprint(hbuf, sizeof(hbuf), "%H", h);
-	snprint(path, sizeof(path), ".git/objects/%c%c/%s", hbuf[0], hbuf[1], hbuf + 2);
-	if((f = Bopen(path, OREAD)) != nil){
-		if(readloose(f, obj) == -1)
-			goto error;
-		Bterm(f);
-		return obj;
-	}
-
-	if ((n = slurpdir(".git/objects/pack", &d)) == -1)
-		goto error;
-	o = -1;
-	l = 0;
-	for(i = 0; i < n; i++){
-		l = strlen(d[i].name);
-		if(l > 4 && strcmp(d[i].name + l - 4, ".idx") != 0)
-			continue;
-		if(snprint(path, sizeof(path), ".git/objects/pack/%s", d[i].name) >= sizeof(path))
-			goto error;
-		if((f = Bopen(path, OREAD)) == nil)
-			continue;
-		if((o = searchindex(f, h)) == -1){
-			Bterm(f);
-			continue;
-		}
-		Bterm(f);
-		break;
-	}
-
-	if (obj == nil){
-		f = nil;
-		goto error;
-	}
-
-	if(snprint(pack, sizeof(pack), ".git/objects/pack/%.*s.pack", l - 4, d[i].name) >= sizeof(path))
-		goto error;
-	if((f = Bopen(pack, OREAD)) == nil)
-		goto error;
-	if(Bseek(f, o, 0) == -1)
-		goto error;
-	if(readpacked(f, obj) == -1)
-		goto error;
-	ret = 0;
-
-error:
-	if(f != nil)
-		Bterm(f);
-	free(d);
-	free(obj);
-	return ret;
-}
-
 static int
 scanword(char **str, int *nstr, char *buf, int nbuf)
 {
@@ -573,17 +504,19 @@ parsecommit(Object *o)
 		}
 		nextline(&p, &np);
 	}
-	while (isspace(*p))
+	while (np && isspace(*p)) {
 		p++;
+		np--;
+	}
 	o->msg = p;
-	print("Commit messsage: %s\n", o->msg);
+	o->nmsg = np;
 }
 
 static void
 parsetree(Object *o)
 {
 	char *p, buf[128];
-	int np, nn;
+	int np, nn, m;
 	Dirent *t;
 
 	p = o->data;
@@ -595,9 +528,10 @@ parsetree(Object *o)
 			p++;
 			np--;
 		}
-		o->ents = realloc(o->ents, ++o->nents * sizeof(Dirent));
-		t = &o->ents[o->nents - 1];
-		t->mode = strtol(buf, nil, 8);
+		o->ent = realloc(o->ent, ++o->nent * sizeof(Dirent));
+		t = &o->ent[o->nent - 1];
+		m = strtol(buf, nil, 8);
+		t->mode = m & 0777 | ((m & ~0777) ? DMDIR : 0);
 		t->name = p;
 		nn = strlen(p) + 1;
 		p += nn;
@@ -624,6 +558,74 @@ parseobject(Object *o)
 	case GTag:	parsetag(o);	break;
 	default:	break;
 	}
+}
+
+Object*
+readobject(Hash h)
+{
+	char path[Pathmax];
+	char pack[Pathmax];
+	char hbuf[41];
+	Biobuf *f;
+	Object *obj, *ret;
+	int l, i, n;
+	vlong o;
+	Dir *d;
+
+	d = nil;
+	ret = nil;
+	obj = emalloc(sizeof(Object));
+	obj->hash = h;
+	snprint(hbuf, sizeof(hbuf), "%H", h);
+	snprint(path, sizeof(path), ".git/objects/%c%c/%s", hbuf[0], hbuf[1], hbuf + 2);
+	if((f = Bopen(path, OREAD)) != nil){
+		if(readloose(f, obj) == -1)
+			goto error;
+		Bterm(f);
+		parseobject(obj);
+		return obj;
+	}
+
+	if ((n = slurpdir(".git/objects/pack", &d)) == -1)
+		goto error;
+	o = -1;
+	l = 0;
+	for(i = 0; i < n; i++){
+		l = strlen(d[i].name);
+		if(l > 4 && strcmp(d[i].name + l - 4, ".idx") != 0)
+			continue;
+		if(snprint(path, sizeof(path), ".git/objects/pack/%s", d[i].name) >= sizeof(path))
+			goto error;
+		if((f = Bopen(path, OREAD)) == nil)
+			continue;
+		if((o = searchindex(f, h)) == -1){
+			Bterm(f);
+			continue;
+		}
+		Bterm(f);
+		break;
+	}
+
+	if (obj == nil){
+		f = nil;
+		goto error;
+	}
+
+	if(snprint(pack, sizeof(pack), ".git/objects/pack/%.*s.pack", l - 4, d[i].name) >= sizeof(path))
+		goto error;
+	if((f = Bopen(pack, OREAD)) == nil)
+		goto error;
+	if(Bseek(f, o, 0) == -1)
+		goto error;
+	if(readpacked(f, obj) == -1)
+		goto error;
+	parseobject(obj);
+error:
+	if(f != nil)
+		Bterm(f);
+	free(d);
+	free(obj);
+	return ret;
 }
 
 void

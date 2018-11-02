@@ -16,7 +16,6 @@ main(int argc, char **argv)
 	for(i = 0; i < argc; i++){
 		hparse(&h, argv[i]);
 		o = readobject(h);
-		parseobject(o);
 		print("%O\n", o);
 		freeobject(o);
 	}
