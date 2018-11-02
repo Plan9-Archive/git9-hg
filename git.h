@@ -3,6 +3,7 @@
 #include <mp.h>
 #include <libsec.h>
 #include <flate.h>
+#include <avl.h>
 #include <regexp.h>
 
 typedef struct Hash Hash;
@@ -43,6 +44,10 @@ struct Dirent {
 };
 
 struct Object {
+	Avl;
+	int id;
+
+	/* Git data */
 	Hash hash;
 	Type type;
 	vlong size;
@@ -56,12 +61,13 @@ struct Object {
 	char *author;
 	char *committer;
 	char *msg;
+	int nmsg;
 	vlong ctime;
 	vlong mtime;
 
 	/* Tree */
-	Dirent *ents;
-	int nents;
+	Dirent *ent;
+	int nent;
 };
 
 #define GETBE32(b)\

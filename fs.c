@@ -8,14 +8,14 @@
 
 char *mtpt = "/n/git";
 #define QDIR(qid)	((qid)->path & (0xff))
+#define QPATH(id, dt)	(((id) << 8) | ((dt) & 0xff))
+typedef struct Ols Ols;
 
 char *Eperm = "permission denied";
 char *Eexist = "does not exist";
 char *E2long = "path too long";
 char *Enodir = "not a directory";
 char *Egreg = "wat";
-char *username;
-long nqid;
 
 enum {
 	Qroot,
@@ -29,7 +29,6 @@ enum {
 	Qmax,
 };
 
-typedef struct Ols Ols;
 struct Ols {
 	int qtype;
 	int l0;
@@ -51,6 +50,7 @@ struct Gitaux {
 	Object	*obj;
 	char 	*refpath;
 	Ols	*ols;
+	int	 qdir;
 };
 
 char *qroot[] = {
@@ -58,21 +58,24 @@ char *qroot[] = {
 	"object",
 };
 
-Object *objcache;
+Avltree *objcache;
 int nobjcache;
+char *username;
 
-static char *
-findent(Object *o, char *name, Qid *qid)
+static Object*
+cacheobj(Hash h)
 {
-	USED(o); USED(name); USED(qid);
-	return "unimplemented: walk git ent";
-}
+	Object k, *o;
 
-static int
-treegen(int i, Dir *d, void *)
-{
-	USED(i); USED(d);
-	return -1;	
+	k.hash = h;
+	if((o = (Object*)avllookup(objcache, &k, 0)) != nil)
+		return o;
+	o = readobject(h);
+	if(o == nil)
+		return nil;
+	o->id = nobjcache++;
+	avlinsert(objcache, o);
+	return o;
 }
 
 static int
@@ -122,15 +125,49 @@ gitcreate(Req *r)
 }
 
 static int
-gtreegen(int, Dir *, void *)
+gtreegen(int i, Dir *d, void *p)
 {
-	return -1;
+	Gitaux *aux;
+
+	aux = p;
+	if(i >= aux->obj->nent)
+		return -1;
+	d->mode = aux->obj->ent[i].mode;
+	d->name = estrdup9p(aux->obj->ent[i].name);
+	d->qid.path = QPATH(aux->obj->id, aux->qdir);
+	return 0;
 }
 
 static int
-gcommitgen(int, Dir *, void *)
+gcommitgen(int i, Dir *d, void *p)
 {
-	return -1;
+	Object *o;
+
+	o = ((Gitaux*)p)->obj;
+	d->uid = estrdup9p(username);
+	d->gid = estrdup9p(username);
+	d->muid = estrdup9p(username);
+
+	switch(i){
+	case 0:
+		d->mode = 0555 | DMDIR;
+		d->name = estrdup9p("tree");
+		d->qid.path = QPATH(o->id, Qcommittree);
+		break;
+	case 1:
+		d->mode = 0444;
+		d->name = estrdup9p("parent");
+		d->qid.path = QPATH(o->id, Qcommitinfo);
+		break;
+	case 2:
+		d->mode = 0444;
+		d->name = estrdup9p("msg");
+		d->qid.path = QPATH(o->id, Qcommitmsg);
+		break;
+	default:
+		return -1;
+	}
+	return 0;
 }
 
 static void
@@ -142,7 +179,7 @@ obj2dir(Dir *d, Object *o)
 	d->name = estrdup9p(name);
 	d->qid.type = (o->type == GBlob) ? 0 : QTDIR;
 	d->mode = (o->type == GBlob) ? 0644 : 0755 | DMDIR;
-	d->qid.path = 42;
+	d->qid.path = QPATH(o->id, Qobject);
 }
 
 int
@@ -225,7 +262,7 @@ objgen1(Dir *d, Ols *st)
 			if(st->lp < st->np){
 				if(read(st->pfd, h.h, sizeof(h.h)) == -1)
 					return -1;
-				if((o = readobject(h)) == nil)
+				if((o = cacheobj(h)) == nil)
 					return -1;
 				obj2dir(d, o);
 				freeobject(o);
@@ -239,7 +276,7 @@ objgen1(Dir *d, Ols *st)
 				snprint(name, sizeof(name), "%s%s", st->pfx, st->d1[st->l1].name);
 				if(hparse(&h, name) == -1)
 					return -1;
-				if((o = readobject(h)) == nil)
+				if((o = cacheobj(h)) == nil)
 					return -1;
 				obj2dir(d, o);
 				freeobject(o);
@@ -282,8 +319,11 @@ done:
 }
 
 static void
-readobj(Req *r, Object *o)
+objread(Req *r, Gitaux *aux)
 {
+	Object *o;
+
+	o = aux->obj;
 	switch(o->type){
 	case GBlob:
 		readbuf(r, o->data, o->size);
@@ -292,10 +332,14 @@ readobj(Req *r, Object *o)
 		readbuf(r, o->data, o->size);
 		break;
 	case GTree:
-		dirread9p(r, gtreegen, o);
+		print("reading tree %p (nent: %d)\n", o, o->nent);
+		print("\thash: %H\n", o->hash);
+		dirread9p(r, gtreegen, aux);
 		break;
 	case GCommit:
-		dirread9p(r, gcommitgen, o);
+		print("reading commit %p\n", o);
+		print("\thash: %H\n", o->hash);
+		dirread9p(r, gcommitgen, aux);
 		break;
 	default:
 		sysfatal("invalid object type");
@@ -326,9 +370,42 @@ gitclone(Fid *, Fid *n)
 }
 
 static char *
-objwalk1(Qid *, Object *, char *, vlong)
+objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 {
-	return "unimplemented object walk";
+	Object *o, *w;
+	char *e;
+	int i;
+
+	e = nil;
+	o = aux->obj;
+	if(o->type == GTree){
+		qid->type = 0;
+		for(i = 0; i < o->nent; i++){
+			if(strcmp(o->ent[i].name, name) != 0)
+				continue;
+			w = cacheobj(o->ent[i].h);
+			aux->obj = cacheobj(o->ent[i].h);
+			qid->type = (w->type == GTree) ? QTDIR : 0;
+			qid->path = QPATH(w->id, qdir);
+			aux->obj = w;
+		}
+	}else if(o->type == GCommit){
+		qid->type = 0;
+		if(strcmp(name, "msg") == 0)
+			qid->path = QPATH(aux->obj->id, Qcommitmsg);
+		else if(strcmp(name, "info") == 0)
+			qid->path = QPATH(aux->obj->id, Qcommitinfo);
+		else if(strcmp(name, "tree") == 0){
+			qid->type = QTDIR;
+			qid->path = QPATH(aux->obj->id, Qcommittree);
+			aux->obj = cacheobj(aux->obj->tree);
+		}
+		else
+			e = Eexist;
+	}else if(o->type == GTag){
+		e = "tag walk unsupported";
+	}
+	return e;
 }
 
 static Object *
@@ -368,7 +445,7 @@ readref(char *pathstr)
 		return nil;
 	}
 
-	return readobject(h);
+	return cacheobj(h);
 }
 
 static char *
@@ -403,37 +480,29 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 		if(d->qid.type == QTDIR)
 			aux->refpath = estrdup(path);
 		else if((aux->obj = readref(path)) != nil)
-			qid->path = (++nqid << 8) | Qcommit;
+			qid->path = QPATH(aux->obj->id, Qcommit);
 		else
 			e = Eexist;
 		free(d);
 		break;
 	case Qobject:
 		if(aux->obj){
-			objwalk1(qid, aux->obj, name, Qobject);
+			objwalk1(qid, aux, name, Qobject);
 		}else{
 			if(hparse(&h, name) == -1)
 				return "invalid object name";
-			if((aux->obj = readobject(h)) == nil)
+			if((aux->obj = cacheobj(h)) == nil)
 				return "could not read object";
-			qid->path = (++nqid << 8) | Qobject;
+			qid->path = QPATH(aux->obj->id, Qobject);
 			qid->type = (aux->obj->type == GBlob) ? 0 : QTDIR;
 			qid->vers = 0;
 		}
 		break;
 	case Qcommit:
-		qid->path &= ~0xff;
-		if(strcmp(name, "tree") == 0)
-			qid->path |= Qcommittree;
-		else if(strcmp(name, "info") == 0)
-			qid->path |= Qcommitinfo;
-		else if(strcmp(name, "msg") == 0)
-			qid->path |= Qcommitmsg;
-		else
-			e = Eexist;
+		objwalk1(qid, aux, name, Qcommit);
 		break;	
 	case Qcommittree:
-		objwalk1(qid, aux->obj, name, Qcommittree);
+		objwalk1(qid, aux, name, Qcommittree);
 		break;
 	case Qcommitinfo:
 	case Qcommitmsg:
@@ -451,12 +520,8 @@ gitdestroyfid(Fid *f)
 {
 	Gitaux *aux;
 
-	if(aux = f->aux){
-		if(aux->obj)
-			freeobject(aux->obj);
-		free(aux->obj);
-		free(f->aux);
-	}
+	if(aux = f->aux)
+		free(aux);
 }
 
 static void
@@ -476,28 +541,31 @@ gitread(Req *r)
 		dirread9p(r, rootgen, nil);
 		break;
 	case Qbranch:
-		dirread9p(r, branchgen, aux);
+		if(o)
+			objread(r, aux);
+		else
+			dirread9p(r, branchgen, aux);
 		break;
 	case Qobject:
 		if(o)
-			readobj(r, o);
+			objread(r, aux);
 		else
 			dirread9p(r, objgen, aux->ols);
 		break;
 	case Qcommit:
-		readobj(r, o);
+		objread(r, aux);
 		break;
 	case Qcommitmsg:
-		readstr(r, o->msg);
+		readbuf(r, o->msg, o->nmsg);
 		break;
 	case Qcommitinfo:
 		readcommitinfo(r, o);
 		break;
 	case Qcommittree:
-		readobj(r, o);
+		objread(r, aux);
 		break;
 	case Qcommitdata:
-		readobj(r, o);
+		objread(r, aux);
 		break;
 	default:
 		sysfatal("read: bad qid");
@@ -541,6 +609,7 @@ gitstat(Req *r)
 			goto statobj;
 		r->d.name = estrdup9p("object");
 	case Qcommit:
+		print("aux: %p, obj: %p\n", aux, aux->obj);
 		r->d.name = smprint("%H", aux->obj->hash);
 		break;
 	case Qcommitmsg:
@@ -579,6 +648,14 @@ gitremove(Req *r)
 	respond(r, "unimplemented remove");
 }
 
+static int
+objcmp(Avl *aa, Avl *bb)
+{
+	Object *a = (Object*)aa;
+	Object *b = (Object*)bb;
+	return memcmp(a->hash.h, b->hash.h, sizeof(a->hash.h));
+}
+
 Srv gitsrv = {
 	.attach=gitattach,
 	.walk1=gitwalk1,
@@ -610,5 +687,6 @@ threadmain(int argc, char **argv)
 	}ARGEND;
 
 	username = getuser();
+	objcache = avlcreate(objcmp);
 	threadpostmountsrv(&gitsrv, nil, mtpt, MCREATE);
 }
