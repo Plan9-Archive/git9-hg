@@ -145,7 +145,41 @@ slurpdir(char *p, Dir **d)
 	r = dirreadall(f, d);
 	close(f);
 	return r;
-}			
+}
+
+int
+readall(int fd, char *buf, int nbuf)
+{
+	int l, n;
+
+	l = 0;
+	while(l != nbuf){
+		n = read(fd, buf + l, nbuf - l);
+		if(n == -1)
+			return -1;
+		if(n == 0)
+			return l;
+		l += n;
+	}
+	return l;
+}
+
+int
+writeall(int fd, char *buf, int nbuf)
+{
+	int l, n;
+
+	l = 0;
+	while(l != nbuf){
+		n = write(fd, buf + l, nbuf - l);
+		if(n == -1)
+			return -1;
+		if(n == 0)
+			return l;
+		l += n;
+	}
+	return l;
+}	
 
 int
 bappend(void *p, void *src, int len)
