@@ -26,6 +26,7 @@ enum {
 	Qcommittree,
 	Qcommitdata,
 	Qcommithash,
+	Qcommitauthor,
 	Qobject,
 	Qmax,
 };
@@ -148,6 +149,7 @@ gcommitgen(int i, Dir *d, void *p)
 	d->uid = estrdup9p(username);
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
+	d->mode = 0444;
 	d->atime = o->ctime;
 	d->mtime = o->ctime;
 
@@ -158,19 +160,20 @@ gcommitgen(int i, Dir *d, void *p)
 		d->qid.path = QPATH(o->id, Qcommittree);
 		break;
 	case 1:
-		d->mode = 0444;
 		d->name = estrdup9p("parent");
 		d->qid.path = QPATH(o->id, Qcommitparent);
 		break;
 	case 2:
-		d->mode = 0444;
 		d->name = estrdup9p("msg");
 		d->qid.path = QPATH(o->id, Qcommitmsg);
 		break;
 	case 3:
-		d->mode = 0444;
 		d->name = estrdup9p("hash");
 		d->qid.path = QPATH(o->id, Qcommithash);
+		break;
+	case 4:
+		d->name = estrdup9p("author");
+		d->qid.path = QPATH(o->id, Qcommitauthor);
 		break;
 	default:
 		return -1;
@@ -410,6 +413,8 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 			qid->path = QPATH(aux->obj->id, Qcommitparent);
 		else if(strcmp(name, "hash") == 0)
 			qid->path = QPATH(aux->obj->id, Qcommithash);
+		else if(strcmp(name, "author") == 0)
+			qid->path = QPATH(aux->obj->id, Qcommitauthor);
 		else if(strcmp(name, "tree") == 0){
 			qid->type = QTDIR;
 			qid->path = QPATH(aux->obj->id, Qcommittree);
@@ -520,6 +525,7 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 	case Qcommitmsg:
 	case Qcommitdata:
 	case Qcommithash:
+	case Qcommitauthor:
 		return Enodir;
 	default:
 		sysfatal("walk: bad qid");
@@ -585,6 +591,9 @@ gitread(Req *r)
 		snprint(buf, sizeof(buf), "%H\n", o->hash);
 		readstr(r, buf);
 		break;
+	case Qcommitauthor:
+		readstr(r, o->author);
+		break;
 	default:
 		sysfatal("read: bad qid");
 	}
@@ -611,8 +620,10 @@ gitstat(Req *r)
 	r->d.mtime = time(0);
 	r->d.atime = r->d.mtime;
 	r->d.qid = r->fid->qid;
-
+	r->d.atime = aux->obj->ctime;
+	r->d.mtime = aux->obj->mtime;
 	r->d.mode = 0755 | DMDIR;
+
 	switch(QDIR(q)){
 	case Qroot:
 		r->d.name = estrdup9p("/");
@@ -627,30 +638,20 @@ gitstat(Req *r)
 			goto statobj;
 		r->d.name = estrdup9p("object");
 	case Qcommit:
-		r->d.atime = aux->obj->ctime;
-		r->d.mtime = aux->obj->mtime;
 		r->d.name = smprint("%H", aux->obj->hash);
 		break;
 	case Qcommitmsg:
-		r->d.atime = aux->obj->ctime;
-		r->d.mtime = aux->obj->mtime;
 		r->d.name = estrdup9p("msg");
 		r->d.mode = 0644;
 		break;
 	case Qcommittree:
-		r->d.atime = aux->obj->ctime;
-		r->d.mtime = aux->obj->mtime;
 		r->d.name = estrdup9p("tree");
 		break;
 	case Qcommitparent:
-		r->d.atime = aux->obj->ctime;
-		r->d.mtime = aux->obj->mtime;
 		r->d.name = estrdup9p("info");
 		r->d.mode = 0644;
 		break;
 	case Qcommithash:
-		r->d.atime = aux->obj->ctime;
-		r->d.mtime = aux->obj->mtime;
 		r->d.name = estrdup9p("hash");
 		r->d.mode = 0644;
 		break;
