@@ -28,6 +28,7 @@ enum {
 	Qcommithash,
 	Qcommitauthor,
 	Qobject,
+	Qctl,
 	Qmax,
 };
 
@@ -58,6 +59,7 @@ struct Gitaux {
 char *qroot[] = {
 	"branch",
 	"object",
+	"ctl",
 };
 
 Avltree *objcache;
@@ -485,6 +487,8 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 		}else if(strcmp(name, "branch") == 0){
 			*qid = (Qid){Qbranch, 0, QTDIR};
 			aux->refpath = estrdup(".git/refs/heads");
+		}else if(strcmp(name, "ctl") == 0){
+			*qid = (Qid){Qctl, 0, 0};
 		}else{
 			return Eexist;
 		}
@@ -526,6 +530,7 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 	case Qcommitdata:
 	case Qcommithash:
 	case Qcommitauthor:
+	case Qctl:
 		return Enodir;
 	default:
 		sysfatal("walk: bad qid");
@@ -594,6 +599,9 @@ gitread(Req *r)
 	case Qcommitauthor:
 		readstr(r, o->author);
 		break;
+	case Qctl:
+		readstr(r, "");
+		break;
 	default:
 		sysfatal("read: bad qid");
 	}
@@ -620,9 +628,11 @@ gitstat(Req *r)
 	r->d.mtime = time(0);
 	r->d.atime = r->d.mtime;
 	r->d.qid = r->fid->qid;
-	r->d.atime = aux->obj->ctime;
-	r->d.mtime = aux->obj->mtime;
 	r->d.mode = 0755 | DMDIR;
+	if(aux->obj){
+		r->d.atime = aux->obj->ctime;
+		r->d.mtime = aux->obj->mtime;
+	}
 
 	switch(QDIR(q)){
 	case Qroot:
@@ -637,6 +647,10 @@ gitstat(Req *r)
 		if(aux && aux->obj)
 			goto statobj;
 		r->d.name = estrdup9p("object");
+	case Qctl:
+		r->d.name = estrdup9p("ctl");
+		r->d.mode = 0666;
+		break;
 	case Qcommit:
 		r->d.name = smprint("%H", aux->obj->hash);
 		break;
