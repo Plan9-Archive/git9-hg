@@ -4,7 +4,7 @@ BIN=/$objtype/bin/git
 TARG=\
 	fs\
 	show\
-	clone
+	fetch
 
 OFILES=\
 	pack.$O\

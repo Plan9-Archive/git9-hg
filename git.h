@@ -127,6 +127,8 @@ void freeobject(Object *);
 /* util functions */
 void *emalloc(ulong);
 char *estrdup(char *);
+int readall(int, char *, int);
+int writeall(int, char *, int);
 int slurpdir(char *, Dir **);
 int hparse(Hash *, char *);
 int bdecompress(Buf *, Biobuf *, vlong *);
