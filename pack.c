@@ -4,8 +4,6 @@
 
 static int readpacked(Biobuf *, Object *);
 
-
-
 static int
 preadbe32(Biobuf *b, int *v, vlong off)
 {
@@ -493,12 +491,12 @@ parsecommit(Object *o)
 			o->parent = realloc(o->parent, ++o->nparent * sizeof(Hash));
 			if(!o->parent)
 				sysfatal("unable to malloc: %r");
-			if(hparse(&o->parent[o->nparent], buf) == -1)
+			if(hparse(&o->parent[o->nparent - 1], buf) == -1)
 				sysfatal("invalid commit: garbled parent");
 		}else if(strcmp(buf, "author") == 0){
 			parseauthor(&p, &np, &o->author, &o->mtime);
 		}else if(strcmp(buf, "committer") == 0){
-			parseauthor(&p, &np, &o->author, &o->mtime);
+			parseauthor(&p, &np, &o->author, &o->ctime);
 		}else{
 			print("unknown commit header '%s' (len: %ld)\n", buf, strlen(buf));
 		}

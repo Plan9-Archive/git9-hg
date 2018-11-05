@@ -1,0 +1,18 @@
+#!/bin/rc -e
+
+rfork e
+
+base=/n/git/object
+commits=($1)
+
+if(test -e /n/git/branch/$1)
+	commits=`{cat /n/git/branch/$1/hash}
+
+while(! ~$commits ''){
+	c=$commits(1)
+	echo '===' `{cat $base/$c/hash} '==='
+	cat $base/$c/msg
+
+	commits=($commits(2-) `{cat $base/$c/parent})
+}
+

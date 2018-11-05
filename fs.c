@@ -22,9 +22,10 @@ enum {
 	Qbranch,
 	Qcommit,
 	Qcommitmsg,
-	Qcommitinfo,
+	Qcommitparent,
 	Qcommittree,
 	Qcommitdata,
+	Qcommithash,
 	Qobject,
 	Qmax,
 };
@@ -147,6 +148,8 @@ gcommitgen(int i, Dir *d, void *p)
 	d->uid = estrdup9p(username);
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
+	d->atime = o->ctime;
+	d->mtime = o->ctime;
 
 	switch(i){
 	case 0:
@@ -157,12 +160,17 @@ gcommitgen(int i, Dir *d, void *p)
 	case 1:
 		d->mode = 0444;
 		d->name = estrdup9p("parent");
-		d->qid.path = QPATH(o->id, Qcommitinfo);
+		d->qid.path = QPATH(o->id, Qcommitparent);
 		break;
 	case 2:
 		d->mode = 0444;
 		d->name = estrdup9p("msg");
 		d->qid.path = QPATH(o->id, Qcommitmsg);
+		break;
+	case 3:
+		d->mode = 0444;
+		d->name = estrdup9p("hash");
+		d->qid.path = QPATH(o->id, Qcommithash);
 		break;
 	default:
 		return -1;
@@ -332,13 +340,9 @@ objread(Req *r, Gitaux *aux)
 		readbuf(r, o->data, o->size);
 		break;
 	case GTree:
-		print("reading tree %p (nent: %d)\n", o, o->nent);
-		print("\thash: %H\n", o->hash);
 		dirread9p(r, gtreegen, aux);
 		break;
 	case GCommit:
-		print("reading commit %p\n", o);
-		print("\thash: %H\n", o->hash);
 		dirread9p(r, gcommitgen, aux);
 		break;
 	default:
@@ -347,9 +351,18 @@ objread(Req *r, Gitaux *aux)
 }
 
 static void
-readcommitinfo(Req *r, Object*)
+readcommitparent(Req *r, Object *o)
 {
-	readstr(r, "commit info not yet implemented");
+	char *buf, *p;
+	int i, n;
+
+	n = o->nparent * (40 + 2);
+	buf = emalloc(n);
+	p = buf;
+	for (i = 0; i < o->nparent; i++)
+		p += sprint(p, "%H\n", o->parent[i]);
+	readbuf(r, buf, n);
+	free(buf);
 }
 
 
@@ -393,8 +406,10 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 		qid->type = 0;
 		if(strcmp(name, "msg") == 0)
 			qid->path = QPATH(aux->obj->id, Qcommitmsg);
-		else if(strcmp(name, "info") == 0)
-			qid->path = QPATH(aux->obj->id, Qcommitinfo);
+		else if(strcmp(name, "parent") == 0)
+			qid->path = QPATH(aux->obj->id, Qcommitparent);
+		else if(strcmp(name, "hash") == 0)
+			qid->path = QPATH(aux->obj->id, Qcommithash);
 		else if(strcmp(name, "tree") == 0){
 			qid->type = QTDIR;
 			qid->path = QPATH(aux->obj->id, Qcommittree);
@@ -416,7 +431,6 @@ readref(char *pathstr)
 	int n, f;
 
 	snprint(path, sizeof(path), "%s", pathstr);
-	print("reading path %s\n", path);
 	while(1){
 		if((f = open(path, OREAD)) == -1){
 			print("failed to open path: %r\n");
@@ -427,10 +441,8 @@ readref(char *pathstr)
 			return nil;
 		}
 		buf[n] = 0;
-		if(strncmp(buf, "ref:", 4) !=  0){
-			print("%s direct hash\n", buf);
+		if(strncmp(buf, "ref:", 4) !=  0)
 			break;
-		}
 
 		p = buf + 4;
 		while(isspace(*p))
@@ -504,9 +516,10 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 	case Qcommittree:
 		objwalk1(qid, aux, name, Qcommittree);
 		break;
-	case Qcommitinfo:
+	case Qcommitparent:
 	case Qcommitmsg:
 	case Qcommitdata:
+	case Qcommithash:
 		return Enodir;
 	default:
 		sysfatal("walk: bad qid");
@@ -527,6 +540,7 @@ gitdestroyfid(Fid *f)
 static void
 gitread(Req *r)
 {
+	char buf[64];
 	Gitaux *aux;
 	Object *o;
 	Qid *q;
@@ -558,14 +572,18 @@ gitread(Req *r)
 	case Qcommitmsg:
 		readbuf(r, o->msg, o->nmsg);
 		break;
-	case Qcommitinfo:
-		readcommitinfo(r, o);
+	case Qcommitparent:
+		readcommitparent(r, o);
 		break;
 	case Qcommittree:
 		objread(r, aux);
 		break;
 	case Qcommitdata:
 		objread(r, aux);
+		break;
+	case Qcommithash:
+		snprint(buf, sizeof(buf), "%H\n", o->hash);
+		readstr(r, buf);
 		break;
 	default:
 		sysfatal("read: bad qid");
@@ -609,18 +627,31 @@ gitstat(Req *r)
 			goto statobj;
 		r->d.name = estrdup9p("object");
 	case Qcommit:
-		print("aux: %p, obj: %p\n", aux, aux->obj);
+		r->d.atime = aux->obj->ctime;
+		r->d.mtime = aux->obj->mtime;
 		r->d.name = smprint("%H", aux->obj->hash);
 		break;
 	case Qcommitmsg:
+		r->d.atime = aux->obj->ctime;
+		r->d.mtime = aux->obj->mtime;
 		r->d.name = estrdup9p("msg");
 		r->d.mode = 0644;
 		break;
 	case Qcommittree:
+		r->d.atime = aux->obj->ctime;
+		r->d.mtime = aux->obj->mtime;
 		r->d.name = estrdup9p("tree");
 		break;
-	case Qcommitinfo:
+	case Qcommitparent:
+		r->d.atime = aux->obj->ctime;
+		r->d.mtime = aux->obj->mtime;
 		r->d.name = estrdup9p("info");
+		r->d.mode = 0644;
+		break;
+	case Qcommithash:
+		r->d.atime = aux->obj->ctime;
+		r->d.mtime = aux->obj->mtime;
+		r->d.name = estrdup9p("hash");
 		r->d.mode = 0644;
 		break;
 	default:
