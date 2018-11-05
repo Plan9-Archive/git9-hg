@@ -2,17 +2,20 @@
 
 rfork e
 
-base=/n/git/object
+base=/n/git/object/
 commits=($1)
-
 if(test -e /n/git/branch/$1)
 	commits=`{cat /n/git/branch/$1/hash}
 
-while(! ~$commits ''){
+while(! ~$#commits 0){
 	c=$commits(1)
-	echo '===' `{cat $base/$c/hash} '==='
-	cat $base/$c/msg
+	echo 'Hash:	' `{cat $base/$c/hash}
+	echo 'Author:	' `{cat $base/$c/author}
+	cat $base/$c/msg | sed 's/^/	/g'
+	echo ''
 
 	commits=($commits(2-) `{cat $base/$c/parent})
+	echo $commits
+	if(! ~$#commits 0)
+		commits=`{du -t $base^$commits | sort -rn | awk -F/ '{print $NF}'}
 }
-
