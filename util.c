@@ -196,3 +196,34 @@ bdecompress(Buf *d, Biobuf *b, vlong *csz)
 		*csz = Boffset(b) - o;
 	return d->len;
 }
+
+int
+hassuffix(char *base, char *suf)
+{
+	int nb, ns;
+
+	nb = strlen(base);
+	ns = strlen(suf);
+	if(ns > nb)
+		return -1;
+	if(strcmp(base + (nb - ns), suf) == 0)
+		return 1;
+	return 0;
+}
+
+int
+swapsuffix(char *dst, int dstsz, char *base, char *oldsuf, char *suf)
+{
+	int bl, ol, sl, l;
+
+	bl = strlen(base);
+	ol = strlen(oldsuf);
+	sl = strlen(suf);
+	l = bl + sl - ol;
+	if(l + 1 > dstsz || ol > bl)
+		return -1;
+	memmove(dst, base, bl - ol);
+	memmove(dst + bl - ol, suf, sl);
+	dst[l] = 0;
+	return l;
+}

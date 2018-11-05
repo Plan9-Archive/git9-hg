@@ -131,3 +131,6 @@ int slurpdir(char *, Dir **);
 int hparse(Hash *, char *);
 int bdecompress(Buf *, Biobuf *, vlong *);
 int decompress(void **, Biobuf *, vlong *);
+int hassuffix(char *, char *);
+int swapsuffix(char *, int, char *, char *, char *);
+
