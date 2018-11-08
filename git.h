@@ -44,15 +44,19 @@ struct Dirent {
 };
 
 struct Object {
+	/* Cache */
 	Avl;
 	int id;
 
 	/* Git data */
 	Hash hash;
 	Type type;
-	vlong size;
+	vlong size; /* excluding header */
 	char *data;
 	char *all;
+
+	/* For indexing */
+	vlong off;
 
 	/* Commit */
 	Hash *parent;
@@ -109,6 +113,7 @@ struct Object {
 	(((c) != '\n') && isspace(c))
 
 extern Reprog *authorpat;
+extern Avltree *objcache;
 
 #pragma varargck type "H" Hash
 #pragma varargck type "T" Type
@@ -123,6 +128,7 @@ void gitinit(void);
 Object* readobject(Hash);
 void parseobject(Object *);
 void freeobject(Object *);
+int indexpack(char *, char *, Hash *);
 
 /* util functions */
 void *emalloc(ulong);
