@@ -4,6 +4,9 @@
 
 static int readpacked(Biobuf *, Object *);
 
+Avltree *objcache;
+int nobjcache;
+
 static int
 preadbe32(Biobuf *b, int *v, vlong off)
 {
@@ -491,12 +494,12 @@ parsecommit(Object *o)
 			o->parent = realloc(o->parent, ++o->nparent * sizeof(Hash));
 			if(!o->parent)
 				sysfatal("unable to malloc: %r");
-			if(hparse(&o->parent[o->nparent - 1], buf) == -1)
+			if(hparse(&o->parent[o->nparent], buf) == -1)
 				sysfatal("invalid commit: garbled parent");
 		}else if(strcmp(buf, "author") == 0){
 			parseauthor(&p, &np, &o->author, &o->mtime);
 		}else if(strcmp(buf, "committer") == 0){
-			parseauthor(&p, &np, &o->author, &o->ctime);
+			parseauthor(&p, &np, &o->author, &o->mtime);
 		}else{
 			print("unknown commit header '%s' (len: %ld)\n", buf, strlen(buf));
 		}
@@ -565,15 +568,21 @@ readobject(Hash h)
 	char pack[Pathmax];
 	char hbuf[41];
 	Biobuf *f;
-	Object *obj, *ret;
+	Object *obj, *ret, k;
 	int l, i, n;
 	vlong o;
 	Dir *d;
 
+	k.hash = h;
+	if((obj= (Object*)avllookup(objcache, &k, 0)) != nil)
+		return obj;
+
 	d = nil;
 	ret = nil;
 	obj = emalloc(sizeof(Object));
+	obj->id = ++nobjcache;
 	obj->hash = h;
+
 	snprint(hbuf, sizeof(hbuf), "%H", h);
 	snprint(path, sizeof(path), ".git/objects/%c%c/%s", hbuf[0], hbuf[1], hbuf + 2);
 	if((f = Bopen(path, OREAD)) != nil){
@@ -587,7 +596,6 @@ readobject(Hash h)
 	if ((n = slurpdir(".git/objects/pack", &d)) == -1)
 		goto error;
 	o = -1;
-	l = 0;
 	for(i = 0; i < n; i++){
 		l = strlen(d[i].name);
 		if(l > 4 && strcmp(d[i].name + l - 4, ".idx") != 0)
@@ -609,15 +617,18 @@ readobject(Hash h)
 		goto error;
 	}
 
-	if(snprint(pack, sizeof(pack), ".git/objects/pack/%.*s.pack", l - 4, d[i].name) >= sizeof(path))
+	if((n = snprint(path, sizeof(path), "%s", path)) >= sizeof(path) - 4)
 		goto error;
+	memcpy(path + n - 4, ".path", 6);
 	if((f = Bopen(pack, OREAD)) == nil)
 		goto error;
 	if(Bseek(f, o, 0) == -1)
 		goto error;
 	if(readpacked(f, obj) == -1)
 		goto error;
+	Bterm(f);
 	parseobject(obj);
+	return obj;
 error:
 	if(f != nil)
 		Bterm(f);
@@ -633,4 +644,128 @@ freeobject(Object *o)
 		return;
 	free(o->all);
 	free(o);
+}
+
+int
+objcmp(void *pa, void *pb)
+{
+	Object *a, *b;
+
+	a = *(Object**)pa;
+	b = *(Object**)pb;
+	return memcmp(a->hash.h, b->hash.h, sizeof(a->hash.h));
+}
+
+int
+hwrite(Biobuf *b, void *buf, int len, DigestState **st)
+{
+	*st = sha1(buf, len, nil, *st);
+	return Bwrite(b, buf, len);
+}
+
+int
+indexpack(char *pack, char *idx, Hash *ph)
+{
+	char hdr[4*3], buf[8];
+	int nobj, nvalid, nbig, n, i;
+	Object *o, **objects;
+	DigestState *st;
+	Hash h;
+	char *valid;
+	Biobuf *f;
+	int c;
+
+	if((f = Bopen(pack, OREAD)) == nil)
+		return -1;
+	if(Bread(f, hdr, sizeof(hdr)) != sizeof(hdr)){
+		werrstr("short read on header");
+		return -1;
+	}
+	if(memcmp(hdr, "PACK\0\0\0\2", 8) != 0){
+		werrstr("invalid header");
+		return -1;
+	}
+
+	nvalid = 0;
+	nobj = GETBE32(hdr + 8);
+	objects = calloc(nobj, sizeof(Object*));
+	valid = calloc(nobj, sizeof(char));
+	while(nvalid != nobj){
+		n = 0;
+		for(i = 0; i < nobj; i++){
+			if(valid[i]){
+				n++;
+				continue;
+			}
+			o = emalloc(sizeof(Object));
+			o->off = Boffset(f);
+			objects[i] = o;
+			valid[i] = 0;
+			if (readpacked(f, objects[i]) == 0){
+				sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
+				parseobject(o);
+				valid[i] = 1;
+				n++;
+			}
+		}
+		if(n == nvalid){
+			print("fix point reached too early: %d/%d", nvalid, nobj);
+			goto error;
+		}
+		nvalid = n;
+	}
+	Bterm(f);
+
+	qsort(objects, nobj, sizeof(Object*), objcmp);
+	if((f = Bopen(idx, OWRITE)) == nil)
+		return -1;
+	if(Bwrite(f, "\xfftOc\x00\x00\x00\x02", 8) != 8)
+		goto error;
+	/* fanout table */
+	c = 0;
+	for(i = 0; i < 256; i++){
+		o = objects[i];
+		while(c < nobj && o->hash.h[0] & 0xff <= i)
+			c++;
+		PUTBE32(buf, c);
+		hwrite(f, buf, 4, &st);
+	}
+	for(i = 0; i < nobj; i++){
+		o = objects[i];
+		hwrite(f, o->hash.h, sizeof(o->hash.h), &st);
+	}
+
+	/* fuck it, pointless */
+	for(i = 0; i < nobj; i++){
+		PUTBE32(buf, 42);
+		hwrite(f, buf, 4, &st);
+	}
+
+	nbig = 0;
+	for(i = 0; i < nobj; i++){
+		if(objects[i]->off <= (1ull<<31))
+			PUTBE32(buf, objects[i]->off);
+		else
+			PUTBE32(buf, (1ull << 31) | nbig++);
+		hwrite(f, buf, 4, &st);
+	}
+	for(i = 0; i < nobj; i++){
+		if(objects[i]->off > (1ull<<31)){
+			PUTBE64(buf, objects[i]->off);
+			hwrite(f, buf, 8, &st);
+		}
+	}
+	hwrite(f, ph->h, sizeof(ph->h), &st);
+	sha1(nil, 0, h.h, st);
+	Bwrite(f, h.h, sizeof h.h);
+	free(objects);
+	free(valid);
+	Bterm(f);
+	return 0;
+
+error:
+	free(objects);
+	free(valid);
+	Bterm(f);
+	return -1;
 }

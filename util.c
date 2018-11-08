@@ -106,6 +106,14 @@ Ofmt(Fmt *fmt)
 	return l;
 }
 
+static int
+objcmp(Avl *aa, Avl *bb)
+{
+	Object *a = (Object*)aa;
+	Object *b = (Object*)bb;
+	return memcmp(a->hash.h, b->hash.h, sizeof(a->hash.h));
+}
+
 void
 gitinit(void)
 {
@@ -114,6 +122,7 @@ gitinit(void)
 	fmtinstall('O', Ofmt);
 	inflateinit();
 	authorpat = regcomp("[\t ]+(.*)[\t ]+([0-9]+)[\t ]+([\\-+][0-9]+)");
+	objcache = avlcreate(objcmp);
 }
 
 int

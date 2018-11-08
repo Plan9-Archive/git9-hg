@@ -62,25 +62,9 @@ char *qroot[] = {
 	"ctl",
 };
 
-Avltree *objcache;
-int nobjcache;
 char *username;
 
-static Object*
-cacheobj(Hash h)
-{
-	Object k, *o;
 
-	k.hash = h;
-	if((o = (Object*)avllookup(objcache, &k, 0)) != nil)
-		return o;
-	o = readobject(h);
-	if(o == nil)
-		return nil;
-	o->id = nobjcache++;
-	avlinsert(objcache, o);
-	return o;
-}
 
 static int
 rootgen(int i, Dir *d, void *)
@@ -275,7 +259,7 @@ objgen1(Dir *d, Ols *st)
 			if(st->lp < st->np){
 				if(read(st->pfd, h.h, sizeof(h.h)) == -1)
 					return -1;
-				if((o = cacheobj(h)) == nil)
+				if((o = readobject(h)) == nil)
 					return -1;
 				obj2dir(d, o);
 				freeobject(o);
@@ -289,7 +273,7 @@ objgen1(Dir *d, Ols *st)
 				snprint(name, sizeof(name), "%s%s", st->pfx, st->d1[st->l1].name);
 				if(hparse(&h, name) == -1)
 					return -1;
-				if((o = cacheobj(h)) == nil)
+				if((o = readobject(h)) == nil)
 					return -1;
 				obj2dir(d, o);
 				freeobject(o);
@@ -401,8 +385,8 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 		for(i = 0; i < o->nent; i++){
 			if(strcmp(o->ent[i].name, name) != 0)
 				continue;
-			w = cacheobj(o->ent[i].h);
-			aux->obj = cacheobj(o->ent[i].h);
+			w = readobject(o->ent[i].h);
+			aux->obj = readobject(o->ent[i].h);
 			qid->type = (w->type == GTree) ? QTDIR : 0;
 			qid->path = QPATH(w->id, qdir);
 			aux->obj = w;
@@ -420,7 +404,7 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 		else if(strcmp(name, "tree") == 0){
 			qid->type = QTDIR;
 			qid->path = QPATH(aux->obj->id, Qcommittree);
-			aux->obj = cacheobj(aux->obj->tree);
+			aux->obj = readobject(aux->obj->tree);
 		}
 		else
 			e = Eexist;
@@ -464,7 +448,7 @@ readref(char *pathstr)
 		return nil;
 	}
 
-	return cacheobj(h);
+	return readobject(h);
 }
 
 static char *
@@ -512,7 +496,7 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 		}else{
 			if(hparse(&h, name) == -1)
 				return "invalid object name";
-			if((aux->obj = cacheobj(h)) == nil)
+			if((aux->obj = readobject(h)) == nil)
 				return "could not read object";
 			qid->path = QPATH(aux->obj->id, Qobject);
 			qid->type = (aux->obj->type == GBlob) ? 0 : QTDIR;
@@ -694,14 +678,6 @@ gitremove(Req *r)
 	respond(r, "unimplemented remove");
 }
 
-static int
-objcmp(Avl *aa, Avl *bb)
-{
-	Object *a = (Object*)aa;
-	Object *b = (Object*)bb;
-	return memcmp(a->hash.h, b->hash.h, sizeof(a->hash.h));
-}
-
 Srv gitsrv = {
 	.attach=gitattach,
 	.walk1=gitwalk1,
@@ -733,6 +709,5 @@ threadmain(int argc, char **argv)
 	}ARGEND;
 
 	username = getuser();
-	objcache = avlcreate(objcmp);
 	threadpostmountsrv(&gitsrv, nil, mtpt, MCREATE);
 }

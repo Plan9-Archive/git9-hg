@@ -168,17 +168,12 @@ resolveref(Hash *h, char *ref)
 }
 
 int
-indexpack(int)
-{
-	return -1;
-}
-
-int
 fetchpack(int fd, char *packtmp)
 {
 	char buf[65536];
+	char idxtmp[256];
 	char *sp[3];
-	Hash zero;
+	Hash zero, h;
 	Hash have[64];
 	Hash want[64];
 	int i, n, nref, req, pfd;
@@ -191,9 +186,11 @@ fetchpack(int fd, char *packtmp)
 			return -1;
 		if(n == 0)
 			break;
+		if(strncmp(buf, "ERR ", 4) == 0)
+			sysfatal("%s", buf + 4);
 		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
 		if(hparse(&want[i], sp[0]) == -1)
-			sysfatal("invalid hash");
+			sysfatal("invalid hash %s", sp[0]);
 		if(resolveref(&have[i], sp[1]) == -1)
 			memset(&have[i], 0, 0);
 		print("they have %s: %H, we have %H\n", sp[1], want[i], have[i]);
@@ -229,16 +226,22 @@ fetchpack(int fd, char *packtmp)
 	pfd = create(packtmp, ORDWR, 0644);
 	if(pfd == -1)
 		sysfatal("could not open pack %s", packtmp);
+	print("fetching...\n");
 	while(1){
 		n = read(fd, buf, sizeof buf);
 		if(n == 0)
 			break;
 		if(n == -1)
-			sysfatal("could not read packfile: %r");
+			sysfatal("could not fetch packfile: %r");
 		writeall(pfd, buf, n);
 	}
-	if(indexpack(pfd) == -1)
-		sysfatal("could not index fetched pack");
+	close(pfd);
+	n = strlen(packtmp) - strlen(".tmp");
+	memcpy(idxtmp, packtmp, n);
+	memcpy(idxtmp + n, ".idx", strlen(".idx") + 1);
+	print("indexing...\n");
+	if(indexpack(packtmp, idxtmp, &h) == -1)
+		sysfatal("could not index fetched pack: %r");
 	return -1;
 }
 
