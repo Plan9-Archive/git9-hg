@@ -54,6 +54,7 @@ struct Object {
 	vlong size; /* excluding header */
 	char *data;
 	char *all;
+	int parsed;
 
 	/* For indexing */
 	vlong off;

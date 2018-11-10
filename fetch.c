@@ -242,7 +242,7 @@ fetchpack(int fd, char *packtmp)
 	memcpy(idxtmp + n, ".idx", strlen(".idx") + 1);
 	if(indexpack(packtmp, idxtmp, &h) == -1)
 		sysfatal("could not index fetched pack: %r");
-	return -1;
+	return 0;
 }
 
 void

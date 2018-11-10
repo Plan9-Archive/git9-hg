@@ -99,7 +99,7 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 	dst->data = r + n;
 	dst->size = nr;
 	er = dst->data + nr;
-	r = dst->data + n;
+	r = dst->data;
 
 	while(1){
 		if(d == ed)
@@ -137,7 +137,7 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 
 	}
 	if(r != er){
-		werrstr("truncated delta");
+		werrstr("truncated delta (%lld)", er - r);
 		return -1;
 	}
 
@@ -414,10 +414,8 @@ scanword(char **str, int *nstr, char *buf, int nbuf)
 
 	for(; n && !isspace(*p); p++, n--){
 		r = 0;
-		if(nbuf > 1){
-			*buf++ = *p;
-			nbuf--;
-		}
+		*buf++ = *p;
+		nbuf--;
 	}
 	*buf = 0;
 	*str = p;
@@ -425,19 +423,15 @@ scanword(char **str, int *nstr, char *buf, int nbuf)
 	return r;
 }
 
-static int
+static void
 nextline(char **str, int *nstr)
 {
-	while(*nstr && isblank(**str)){
-		(*nstr)--;
-		(*str)++;
+	char *s;
+
+	if((s = strchr(*str, '\n')) != nil){
+		*nstr -= s - *str + 1;
+		*str = s + 1;
 	}
-	if(*nstr && **str == '\n'){
-		(*nstr)--;
-		(*str)++;
-		return 1;
-	}
-	return 0;
 }
 
 static int
@@ -445,36 +439,37 @@ parseauthor(char **str, int *nstr, char **name, vlong *time)
 {
 	char buf[128];
 	Resub m[4];
-	int nm, ne;
-	char *e;
+	char *p;
+	int n, nm;
 
+	if((p = strchr(*str, '\n')) == nil)
+		sysfatal("malformed author line");
+	n = p - *str;
+	if(n >= sizeof(buf))
+		sysfatal("overlong author line");
 	memset(m, 0, sizeof(m));
-	for(e = *str; *e != '\n'; e++){
-		ne = e - *str;
-		if(ne == *nstr || ne == sizeof(buf))
-			break;
-		buf[ne] = *e;
-	}
+	snprint(buf, n + 1, *str);
+	*str = p;
+	*nstr -= n;
+	
 	if(!regexec(authorpat, buf, m, nelem(m)))
-		sysfatal("invalid author line\n");
+		sysfatal("invalid author line %s\n", buf);
 	nm = m[1].ep - m[1].sp;
 	*name = emalloc(nm + 1);
 	memcpy(*name, m[1].sp, nm);
+	buf[nm] = 0;
 	
 	nm = m[2].ep - m[2].sp;
 	memcpy(buf, m[2].sp, nm);
 	buf[nm] = 0;
 	*time = atoll(buf);
-
-	nm = m[0].ep - m[0].sp;
-	*str += nm;
-	*nstr -= nm;
 	return 0;
 }
+
 static void
 parsecommit(Object *o)
 {
-	char *p, buf[128];
+	char *p, *t, buf[128];
 	int np;
 
 	p = o->data;
@@ -493,14 +488,18 @@ parsecommit(Object *o)
 			o->parent = realloc(o->parent, ++o->nparent * sizeof(Hash));
 			if(!o->parent)
 				sysfatal("unable to malloc: %r");
-			if(hparse(&o->parent[o->nparent], buf) == -1)
+			if(hparse(&o->parent[o->nparent - 1], buf) == -1)
 				sysfatal("invalid commit: garbled parent");
 		}else if(strcmp(buf, "author") == 0){
 			parseauthor(&p, &np, &o->author, &o->mtime);
 		}else if(strcmp(buf, "committer") == 0){
-			parseauthor(&p, &np, &o->author, &o->mtime);
-		}else{
-			print("unknown commit header '%s' (len: %ld)\n", buf, strlen(buf));
+			parseauthor(&p, &np, &o->committer, &o->ctime);
+		}else if(strcmp(buf, "gpgsig") == 0){
+			/* just drop it */
+			if((t = strstr(p, "-----END PGP SIGNATURE-----")) == nil)
+				sysfatal("malformed gpg signature");
+			np -= t - p;
+			p = t;
 		}
 		nextline(&p, &np);
 	}
@@ -552,12 +551,15 @@ parsetag(Object *)
 void
 parseobject(Object *o)
 {
+	if(o->parsed)
+		return;
 	switch(o->type){
 	case GTree:	parsetree(o);	break;
 	case GCommit:	parsecommit(o);	break;
 	case GTag:	parsetag(o);	break;
 	default:	break;
 	}
+	o->parsed = 1;
 }
 
 Object*
@@ -703,13 +705,15 @@ indexpack(char *pack, char *idx, Hash *ph)
 			}
 			if (readpacked(f, o) == 0){
 				sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
+				parseobject(o);
+				avlinsert(objcache, o);
 				valid[i] = 1;
 				n++;
 			}
 		}
 		print("\n");
 		if(n == nvalid){
-			print("fix point reached too early: %d/%d", nvalid, nobj);
+			print("fix point reached too early: %d/%d: %r", nvalid, nobj);
 			goto error;
 		}
 		nvalid = n;
