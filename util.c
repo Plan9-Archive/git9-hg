@@ -196,7 +196,7 @@ bappend(void *p, void *src, int len)
 	Buf *b = p;
 	char *n;
 
-	while(b->len + len > b->sz){
+	while(b->len + len >= b->sz){
 		b->sz = b->sz*2 + 64;
 		n = realloc(b->data, b->sz);
 		if(n == nil)
@@ -219,8 +219,10 @@ decompress(void **p, Biobuf *b, vlong *csz)
 {
 	Buf d = {.len=0, .sz=0, .data=nil};
 
-	if(bdecompress(&d, b, csz) == -1)
+	if(bdecompress(&d, b, csz) == -1){
+		free(d.data);
 		return -1;
+	}
 	*p = d.data;
 	return d.len;
 }

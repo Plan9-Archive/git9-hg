@@ -92,14 +92,14 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 	}
 
 	nr = readvint(d, &d);
-	r = malloc(nr + 64);
+	r = emalloc(nr + 64);
 	n = snprint(r, 64, "%T %d", base->type, nr) + 1;
 	dst->all = r;
 	dst->type = base->type;
 	dst->data = r + n;
 	dst->size = nr;
-	er = r + nr;
-	r += n;
+	er = dst->data + nr;
+	r = dst->data + n;
 
 	while(1){
 		if(d == ed)
@@ -145,27 +145,27 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 }
 
 static int
-readrdelta(Biobuf *f, Object *o, vlong n)
+readrdelta(Biobuf *f, Object *o, int nd)
 {
 	Object *b;
 	Hash h;
 	char *d;
+	int n;
 
 	d = nil;
 	if(Bread(f, h.h, sizeof(h.h)) != sizeof(h.h))
 		goto error;
 	if(hasheq(&o->hash, &h))
 		goto error;
-	if(decompress(&d, f, nil) == -1)
+	if((n = decompress(&d, f, nil)) == -1)
 		goto error;
+	assert(n == nd);
 	if((b = readobject(h)) == nil)
 		goto error;
 	if(applydelta(o, b, d, n) == -1)
 		goto error;
-	freeobject(b);
 	return 0;
 error:
-	print("could not read rdelta: %r\n");
 	free(d);
 	return -1;
 }
@@ -189,7 +189,7 @@ readodelta(Biobuf *f, Object *o, vlong n, vlong p)
 		r++;
 		r <<= 7;
 	}while(c & 0x80);
-	print("p: %zd, r: %zd\n", p, r);
+
 	if(p - r < 0)
 		goto error;
 	if(decompress(&d, f, nil) == -1)
@@ -254,12 +254,11 @@ readpacked(Biobuf *f, Object *o)
 		o->size = b.len - n;
 		break;
 	case GOdelta:
-		print("offset delta\n");
-		if(readodelta(f, o, s, p) == -1)
+		if(readodelta(f, o, l, p) == -1)
 			return -1;
 		break;
 	case GRdelta:
-		if(readrdelta(f, o, s) == -1)
+		if(readrdelta(f, o, l) == -1)
 			return -1;
 		break;	
 	}
@@ -568,17 +567,16 @@ readobject(Hash h)
 	char pack[Pathmax];
 	char hbuf[41];
 	Biobuf *f;
-	Object *obj, *ret, k;
+	Object *obj, k;
 	int l, i, n;
 	vlong o;
 	Dir *d;
 
 	k.hash = h;
-	if((obj= (Object*)avllookup(objcache, &k, 0)) != nil)
+	if((obj = (Object*)avllookup(objcache, &k, 0)) != nil)
 		return obj;
 
 	d = nil;
-	ret = nil;
 	obj = emalloc(sizeof(Object));
 	obj->id = ++nobjcache;
 	obj->hash = h;
@@ -590,6 +588,7 @@ readobject(Hash h)
 			goto error;
 		Bterm(f);
 		parseobject(obj);
+		avlinsert(objcache, obj);
 		return obj;
 	}
 
@@ -628,22 +627,14 @@ readobject(Hash h)
 		goto error;
 	Bterm(f);
 	parseobject(obj);
+	avlinsert(objcache, obj);
 	return obj;
 error:
 	if(f != nil)
 		Bterm(f);
 	free(d);
 	free(obj);
-	return ret;
-}
-
-void
-freeobject(Object *o)
-{
-	if(!o)
-		return;
-	free(o->all);
-	free(o);
+	return nil;
 }
 
 int
@@ -686,28 +677,37 @@ indexpack(char *pack, char *idx, Hash *ph)
 		return -1;
 	}
 
+	o = nil;
 	nvalid = 0;
 	nobj = GETBE32(hdr + 8);
+	print("nvalid: %d, nobj: %d\n", nvalid, nobj);
 	objects = calloc(nobj, sizeof(Object*));
 	valid = calloc(nobj, sizeof(char));
 	while(nvalid != nobj){
+		print("indexing (%d/%d):", nvalid, nobj);
 		n = 0;
 		for(i = 0; i < nobj; i++){
 			if(valid[i]){
 				n++;
 				continue;
 			}
-			o = emalloc(sizeof(Object));
-			o->off = Boffset(f);
-			objects[i] = o;
-			valid[i] = 0;
-			if (readpacked(f, objects[i]) == 0){
+			if(i % (nobj/100) == 0)
+				print(".");
+			if(objects[i]){
+				Bseek(f, o->off, 0);
+				o = objects[i];
+			}else{
+				o = emalloc(sizeof(Object));
+				o->off = Boffset(f);
+				objects[i] = o;
+			}
+			if (readpacked(f, o) == 0){
 				sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
-				parseobject(o);
 				valid[i] = 1;
 				n++;
 			}
 		}
+		print("\n");
 		if(n == nvalid){
 			print("fix point reached too early: %d/%d", nvalid, nobj);
 			goto error;
@@ -716,6 +716,8 @@ indexpack(char *pack, char *idx, Hash *ph)
 	}
 	Bterm(f);
 
+	print("writing index\n");
+	st = nil;
 	qsort(objects, nobj, sizeof(Object*), objcmp);
 	if((f = Bopen(idx, OWRITE)) == nil)
 		return -1;

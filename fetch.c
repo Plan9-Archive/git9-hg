@@ -1,5 +1,6 @@
 #include <u.h>
 #include <libc.h>
+#include <pool.h>
 
 #include "git.h"
 
@@ -239,7 +240,6 @@ fetchpack(int fd, char *packtmp)
 	n = strlen(packtmp) - strlen(".tmp");
 	memcpy(idxtmp, packtmp, n);
 	memcpy(idxtmp + n, ".idx", strlen(".idx") + 1);
-	print("indexing...\n");
 	if(indexpack(packtmp, idxtmp, &h) == -1)
 		sysfatal("could not index fetched pack: %r");
 	return -1;

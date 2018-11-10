@@ -127,7 +127,6 @@ void gitinit(void);
 /* object io */
 Object* readobject(Hash);
 void parseobject(Object *);
-void freeobject(Object *);
 int indexpack(char *, char *, Hash *);
 
 /* util functions */
