@@ -262,7 +262,6 @@ objgen1(Dir *d, Ols *st)
 				if((o = readobject(h)) == nil)
 					return -1;
 				obj2dir(d, o);
-				freeobject(o);
 				st->lp++;
 				return 0;
 			}
@@ -276,7 +275,6 @@ objgen1(Dir *d, Ols *st)
 				if((o = readobject(h)) == nil)
 					return -1;
 				obj2dir(d, o);
-				freeobject(o);
 				st->l1++;
 				return 0;
 			}

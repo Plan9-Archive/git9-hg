@@ -17,6 +17,5 @@ main(int argc, char **argv)
 		hparse(&h, argv[i]);
 		o = readobject(h);
 		print("%O\n", o);
-		freeobject(o);
 	}
 }
