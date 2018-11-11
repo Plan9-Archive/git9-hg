@@ -200,30 +200,45 @@ openpack(char *path, int *np)
 	int fd;
 	char buf[4];
 
-	if(fd = open(path, OREAD) == -1)
+	print("opening %s\n", path);
+	if((fd = open(path, OREAD)) == -1)
 		return -1;
+	print("fd %d\n", fd);
 	if(seek(fd, 8 + 255*4, 0) == -1)
 		return -1;
+	print("reading %d\n", fd);
 	if(read(fd, buf, sizeof(buf)) != sizeof(buf))
 		return -1;
 	*np = GETBE32(buf);
+	print("opened pack: np == %d\n", *np);
 	return fd;
 }
 
 static int
 nextpack(Ols *st){
 	char path[128];
+	char *n;
+	int nn, np;
 
 	close(st->pfd);
-	if(st->lp == st->np){
-		st->inpack = 0;
-		return -1;
+	while(1){
+		print("nextpack: l1: %d, n1: %d\n", st->l1, st->n1);
+		if(st->l1 == st->n1){
+			st->inpack = 0;
+			return -1;
+		}
+		n = st->d1[st->l1].name;
+		nn = strlen(n);
+		np = strlen(".idx");
+		st->l1++;
+		if(nn > np && strcmp(n + nn - np, ".idx") != 0)
+			continue;
+		snprint(path, sizeof(path), ".git/objects/pack/%s", n);
+		print("trying pack %s\n", path);
+		if((st->pfd = openpack(path, &st->np)) == -1)
+			return -1;
+		return 0;
 	}
-	snprint(path, sizeof(path), ".git/objects/pack/%s", st->d1[st->l1].name);
-	if((st->pfd = openpack(path, &st->np)) == -1)
-		return -1;
-	st->l1++;
-	return 0;
 }
 
 static int
@@ -233,11 +248,10 @@ nextdir(Ols *st)
 
 	if(st->l0 == st->n0)
 		return -1;
+	snprint(path, sizeof(path), ".git/objects/%s", st->d0[st->l0].name);
+	st->inpack = 0;
 	if(strcmp(st->d0[st->l0].name, "pack") == 0)
 		st->inpack = 1;
-	else
-		snprint(st->pfx, sizeof(st->pfx), "%s", st->d0[st->l0].name);
-	snprint(path, sizeof(path), ".git/objects/%s", st->d0[st->l0].name);
 	free(st->d1);
 	st->l1 = 0;
 	st->d1 = nil;
@@ -255,16 +269,21 @@ objgen1(Dir *d, Ols *st)
 	Hash h;
 
 	while(1){
+		print("gen1: inpack %d\n", st->inpack);
 		if(st->inpack){
 			if(st->lp < st->np){
+				print("reading pack entry\n");
 				if(read(st->pfd, h.h, sizeof(h.h)) == -1)
 					return -1;
+				print("reading object from hash %H\n", h);
 				if((o = readobject(h)) == nil)
 					return -1;
+				print("to dir\n");
 				obj2dir(d, o);
 				st->lp++;
 				return 0;
 			}
+			print("rotating packs\n");
 			if(nextpack(st) == -1 && nextdir(st) == -1)
 				return -1;
 		}else{
@@ -278,6 +297,7 @@ objgen1(Dir *d, Ols *st)
 				st->l1++;
 				return 0;
 			}
+			print("rotating dir\n");
 			if(nextdir(st) == -1)
 				return -1;
 		}
