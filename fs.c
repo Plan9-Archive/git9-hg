@@ -202,17 +202,13 @@ openpack(char *path, int *np)
 	int fd;
 	char buf[4];
 
-	print("opening %s\n", path);
 	if((fd = open(path, OREAD)) == -1)
 		return -1;
-	print("fd %d\n", fd);
 	if(seek(fd, 8 + 255*4, 0) == -1)
 		return -1;
-	print("reading %d\n", fd);
 	if(read(fd, buf, sizeof(buf)) != sizeof(buf))
 		return -1;
 	*np = GETBE32(buf);
-	print("opened pack: np == %d\n", *np);
 	return fd;
 }
 
@@ -224,7 +220,6 @@ nextpack(Ols *st){
 
 	close(st->pfd);
 	while(1){
-		print("nextpack: l1: %d, n1: %d\n", st->l1, st->n1);
 		if(st->l1 == st->n1){
 			st->inpack = 0;
 			return -1;
@@ -236,7 +231,6 @@ nextpack(Ols *st){
 		if(nn > np && strcmp(n + nn - np, ".idx") != 0)
 			continue;
 		snprint(path, sizeof(path), ".git/objects/pack/%s", n);
-		print("trying pack %s\n", path);
 		if((st->pfd = openpack(path, &st->np)) == -1)
 			return -1;
 		return 0;
@@ -271,13 +265,10 @@ objgen1(Dir *d, Ols *st)
 	Hash h;
 
 	while(1){
-		print("gen1: inpack %d\n", st->inpack);
 		if(st->inpack){
 			if(st->lp < st->np){
-				print("reading pack entry\n");
 				if(read(st->pfd, h.h, sizeof(h.h)) == -1)
 					return -1;
-				print("reading object from hash %H\n", h);
 				if((o = readobject(h)) == nil)
 					return -1;
 				obj2dir(d, o);
@@ -285,7 +276,6 @@ objgen1(Dir *d, Ols *st)
 				st->oprev = o;
 				return 0;
 			}
-			print("rotating packs\n");
 			if(nextpack(st) == -1 && nextdir(st) == -1)
 				return -1;
 		}else{
@@ -300,7 +290,6 @@ objgen1(Dir *d, Ols *st)
 				st->oprev = o;
 				return 0;
 			}
-			print("rotating dir\n");
 			if(nextdir(st) == -1)
 				return -1;
 		}
@@ -316,11 +305,11 @@ objgen(int i, Dir *d, void *p)
 	/* We tried to sent it, but it didn't fit */
 	if(st->oprev && i == st->last - 1){
 		obj2dir(d, st->oprev);
+		st->oprev = nil;
 		return 0;
 	}
 	/* We restarted */
-	if(!st->oprev || i < st->last){
-		print("restarting st: i=%d, last=%d\n", i, st->last);
+	if(i < st->last){
 		st->last = 0;
 		free(st->d0);
 		free(st->d1);
@@ -328,7 +317,7 @@ objgen(int i, Dir *d, void *p)
 		if(olsinit(st) == -1)
 			return -1;
 	}
-		
+
 	while  (st->last++ < i)
 		if (objgen1(d, st) == -1)
 			goto done;
