@@ -278,7 +278,7 @@ main(int argc, char **argv)
 	
 	if(fd == -1)
 		sysfatal("could not dial %s:%s: %r", proto, host);
-	snprint(packtmp, sizeof(packtmp), "%s/.git/objects/packs/fetch.tmp", repo);
+	snprint(packtmp, sizeof(packtmp), "%s/.git/objects/pack/fetch.tmp", repo);
 	if(fetchpack(fd, packtmp) == -1)
 		sysfatal("fetch failed: %r");
 

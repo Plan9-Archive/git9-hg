@@ -4,7 +4,9 @@ BIN=/$objtype/bin/git
 TARG=\
 	fs\
 	show\
-	fetch
+	fetch\
+
+#	commit
 
 OFILES=\
 	pack.$O\

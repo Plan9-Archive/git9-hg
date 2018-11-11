@@ -387,7 +387,6 @@ searchindex(Biobuf *f, Hash h)
 		if(preadbe64(f, &o, o) == -1)
 			goto err;
 	}
-	print("found offset %lld\n", o);
 	return o;
 
 err:
@@ -605,23 +604,20 @@ readobject(Hash h)
 			goto error;
 		if((f = Bopen(path, OREAD)) == nil)
 			continue;
-		if((o = searchindex(f, h)) == -1){
-			Bterm(f);
-			continue;
-		}
+		o = searchindex(f, h);
 		Bterm(f);
+		if(o == -1)
+			continue;
 		break;
 	}
 
-	if (obj == nil){
-		f = nil;
+	if (o == -1)
 		goto error;
-	}
 
 	if((n = snprint(path, sizeof(path), "%s", path)) >= sizeof(path) - 4)
 		goto error;
-	memcpy(path + n - 4, ".path", 6);
-	if((f = Bopen(pack, OREAD)) == nil)
+	memcpy(path + n - 4, ".pack", 6);
+	if((f = Bopen(path, OREAD)) == nil)
 		goto error;
 	if(Bseek(f, o, 0) == -1)
 		goto error;
@@ -632,8 +628,6 @@ readobject(Hash h)
 	avlinsert(objcache, obj);
 	return obj;
 error:
-	if(f != nil)
-		Bterm(f);
 	free(d);
 	free(obj);
 	return nil;
@@ -682,7 +676,6 @@ indexpack(char *pack, char *idx, Hash *ph)
 	o = nil;
 	nvalid = 0;
 	nobj = GETBE32(hdr + 8);
-	print("nvalid: %d, nobj: %d\n", nvalid, nobj);
 	objects = calloc(nobj, sizeof(Object*));
 	valid = calloc(nobj, sizeof(char));
 	while(nvalid != nobj){
@@ -730,8 +723,7 @@ indexpack(char *pack, char *idx, Hash *ph)
 	/* fanout table */
 	c = 0;
 	for(i = 0; i < 256; i++){
-		o = objects[i];
-		while(c < nobj && o->hash.h[0] & 0xff <= i)
+		while(c < nobj && (objects[c]->hash.h[0] & 0xff) <= i)
 			c++;
 		PUTBE32(buf, c);
 		hwrite(f, buf, 4, &st);

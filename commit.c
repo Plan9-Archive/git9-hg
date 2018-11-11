@@ -2,18 +2,6 @@
 #include <libc.h>
 #include "git.h"
 
-static int
-slurpdir(char *p, Dir **d)
-{
-	int r, f;
-
-	if((f = open(p, OREAD)) == -1)
-		return -1;
-	r = dirreadall(f, d);
-	close(f);
-	return r;
-}
-
 void
 hprint(Biobuf *f, Hash *h, char *fmt, ...)
 {
