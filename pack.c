@@ -565,7 +565,6 @@ Object*
 readobject(Hash h)
 {
 	char path[Pathmax];
-	char pack[Pathmax];
 	char hbuf[41];
 	Biobuf *f;
 	Object *obj, k;

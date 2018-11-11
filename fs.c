@@ -45,6 +45,7 @@ struct Ols {
 	int pfd;
 	int inpack;
 	int last;
+	Object *oprev;
 	char pfx[32];
 };
 
@@ -189,6 +190,7 @@ olsinit(Ols *st)
 	st->n1 = 0;
 	st->last = 0;
 	st->pfd = -1;
+	st->oprev = nil;
 	if((st->n0 = slurpdir(".git/objects", &st->d0)) == -1)
 		return -1;
 	return 0;
@@ -278,9 +280,9 @@ objgen1(Dir *d, Ols *st)
 				print("reading object from hash %H\n", h);
 				if((o = readobject(h)) == nil)
 					return -1;
-				print("to dir\n");
 				obj2dir(d, o);
 				st->lp++;
+				st->oprev = o;
 				return 0;
 			}
 			print("rotating packs\n");
@@ -295,6 +297,7 @@ objgen1(Dir *d, Ols *st)
 					return -1;
 				obj2dir(d, o);
 				st->l1++;
+				st->oprev = o;
 				return 0;
 			}
 			print("rotating dir\n");
@@ -310,7 +313,13 @@ objgen(int i, Dir *d, void *p)
 	Ols *st;
 
 	st = p;
-	if(i < st->last){
+	/* We tried to sent it, but it didn't fit */
+	if(st->oprev && i == st->last - 1){
+		obj2dir(d, st->oprev);
+		return 0;
+	}
+	/* We restarted */
+	if(!st->oprev || i < st->last){
 		print("restarting st: i=%d, last=%d\n", i, st->last);
 		st->last = 0;
 		free(st->d0);
@@ -319,6 +328,7 @@ objgen(int i, Dir *d, void *p)
 		if(olsinit(st) == -1)
 			return -1;
 	}
+		
 	while  (st->last++ < i)
 		if (objgen1(d, st) == -1)
 			goto done;
