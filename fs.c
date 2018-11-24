@@ -610,12 +610,6 @@ gitread(Req *r)
 }
 
 static void
-gitwrite(Req *r)
-{
-	respond(r, "unimplemented write");
-}
-
-static void
 gitstat(Req *r)
 {
 	Gitaux *aux;
@@ -683,27 +677,12 @@ statobj:
 	respond(r, nil);
 }
 
-static void
-gitwstat(Req *r)
-{
-	respond(r, "unimplemented wstat");
-}
-
-static void
-gitremove(Req *r)
-{
-	respond(r, "unimplemented remove");
-}
-
 Srv gitsrv = {
 	.attach=gitattach,
 	.walk1=gitwalk1,
 	.clone=gitclone,
 	.read=gitread,
-	.write=gitwrite,
 	.stat=gitstat,
-	.wstat=gitwstat,
-	.remove=gitremove,
 	.destroyfid=gitdestroyfid,
 };
 

@@ -2,71 +2,176 @@
 #include <libc.h>
 #include "git.h"
 
-void
-hprint(Biobuf *f, Hash *h, char *fmt, ...)
-{
-	va_list ap;
+typedef struct Objbuf Objbuf;
+struct Objbuf {
+	int off;
+	char *hdr;
+	int nhdr;
+	char *dat;
+	int ndat;
+};
 
-	memset(h->h, 0, sizeof(h->h));
-	va_start(ap, fmt);
-	if(Bprint(f, fmt, ap) == -1)
-		sysfatal("could not write output: %r");
-	va_end(ap);
+static int
+bwrite(void *p, void *buf, int nbuf)
+{
+	return Bwrite(p, buf, nbuf);
+}
+
+static int
+objbytes(void *p, void *buf, int nbuf)
+{
+	Objbuf *b;
+	int r, n, o;
+	char *s;
+
+	b = p;
+	n = 0;
+	print("hdr: off: %d, nhdr: %d\n", b->off, b->nhdr);
+	if(b->off < b->nhdr){
+		r = b->nhdr - b->off;
+		memcpy(buf, b->hdr, (nbuf < r) ? nbuf : r);
+		b->off += r;
+		nbuf -= r;
+		n += r;
+	}
+	if(b->off < b->ndat + b->nhdr){
+		s = buf;
+		o = b->off - b->nhdr;
+		r = b->ndat - o;
+		memcpy(s + n, b->dat + o, (nbuf < r) ? nbuf : r);
+		b->off += r;
+		n += r;
+	}
+	print("return: %d\n", n);
+	return n;
+}
+
+void
+writeobj(Hash *h, char *hdr, int nhdr, char *dat, int ndat)
+{
+	Objbuf b = {.off=0, .hdr=hdr, .nhdr=nhdr, .dat=dat, .ndat=ndat};
+	char s[64], o[256];
+	SHA1state *st;
+	Biobuf *f;
+
+	st = sha1((uchar*)hdr, nhdr, nil, nil);
+	st = sha1((uchar*)dat, ndat, nil, st);
+	sha1(nil, 0, h->h, st);
+	if(snprint(s, sizeof(s), "%H", *h) >= sizeof(s))
+		sysfatal("bad hash");
+	snprint(o, sizeof(o), ".git/objects/%c%c", s[0], s[1]);
+	create(o, OREAD, DMDIR | 0755);
+	snprint(o, sizeof(o), ".git/objects/%c%c/%s", s[0], s[1], s + 2);
+	print("commit has object %s\n", o);
+	if(access(o, AREAD) == -1){
+		if((f = Bopen(o, OWRITE)) == nil)
+			sysfatal("could not open %s: %r", o);
+		if(deflatezlib(f, bwrite, &b, objbytes, 9, 0) == -1)
+			sysfatal("could not write %s: %r", o);
+		Bterm(f);
+	}
 }
 
 int
-treeify(char *path, Hash *h)
+gitmode(int m)
 {
-	Biobuf *f;
-	Dir *d;
-	char buf[512];
-	int i, n, r;
+	return m & 0x777;
+}
 
-	r = 0;
-	if((n = slurpdir(".", &d)) == -1)
-		return -1;
-	if(n == 0)
-		goto done;
-	for(i = 0; i < n; i++){
-		if(snprint(buf, sizeof(buf), "%s/%s", path, d[i].name) >= sizeof(buf)){
-			werrstr("overlong path");
-			goto done;
-		}
-		if(d[i].qid.type & QTDIR)
-			r = treeify(buf);
-		else
-			r = mkblob(buf);
-		if(r == -1)
-			goto done;
-	}
-	if ((f = Bopen(path, OWRITE)) == nil){
-		r = -1;
-		goto done;
-	}
+void
+blobify(char *path, vlong size, Hash *bh)
+{
+	char h[64], *d;
+	int f, nh;
 
-	hprint(f, h, "tree %d");
-	hputc(f, h, 0);
-	for(i = 0; i < n; i++){
-		hprint(f, h, "0%o %s", d[i].mode & 0777, dir[i].mode );
-		hputc(f, h, 0);
-	}
-	Bterm(f);
-done:
+	nh = snprint(h, sizeof(h), "%T %lld", GBlob, size) + 1;
+	if((f = open(path, OREAD)) == -1)
+		sysfatal("could not open %s: %r", path);
+	d = emalloc(size);
+	if(readall(f, d, size) != size)
+		sysfatal("could not read blob %s: %r", path);
+	print("writing blob object");
+	writeobj(bh, h, nh, d, size);
 	free(d);
-	return r;
+}
+
+int
+treeify(char *path, Hash *th)
+{
+	char *t, h[64], l[256], ep[256];
+	int nd, nl, nt, nh, i, s;
+	Hash eh;
+	Dir *d;
+
+	if((nd = slurpdir(path, &d)) == -1)
+		sysfatal("could not read %s", path);
+	if(nd == 0)
+		return 0;
+
+	t = nil;
+	nt = 0;
+	for(i = 0; i < nd; i++){
+		print("blobifying %s (dir: %d)\n", d[i].name, d[i].qid.type & QTDIR);
+		if((snprint(ep, sizeof(ep), "%s/%s", path, d[i].name)) >= sizeof(ep))
+			sysfatal("overlong path");
+		if(d[i].qid.type & QTDIR){
+			if(treeify(ep, &eh) == 0)
+				continue;
+		}else
+			blobify(ep, d[i].length, &eh);
+
+		if((nl = snprint(l, sizeof(l), "%o %s", gitmode(d[i].mode), d[i].name)) >= sizeof(l))
+			sysfatal("overlong name %s", ep);
+		s = nt + nl + sizeof(eh.h) + 1;
+		t = realloc(t, s);
+		memcpy(t + nt, l, nl + 1);
+		memcpy(t + nt + nl + 1, eh.h, sizeof(eh.h));
+		nt = s;
+	}
+	free(d);
+	nh = snprint(h, sizeof(h), "%T %d", GTree, nt) + 1;
+	if(nh >= sizeof(h))
+		sysfatal("overlong header");
+	writeobj(th, h, nh, t, nt);
+	return nd;
+}
+
+
+void
+mkcommit(Hash *c, char *msg, char *author, Hash *parents, int nparents, Hash tree)
+{
+	char *s, h[64];
+	int ns, nh;
+
+	s = smprint(
+		"tree %H\n"
+		"parent %H\n"
+		"author %s\n"
+		"\n"
+		"%s",
+		tree, parents[0], author, msg);
+	USED(nparents);
+	ns = strlen(s);
+	nh = snprint(h, sizeof(h), "%T %d", GCommit, ns) + 1;
+	writeobj(c, h, nh, s, ns);
 }
 
 void
 main(int argc, char **argv)
 {
-	Hash h;
-	Dir *d;
-	int n;
+	Hash c, t;
+	int r;
 
-	if((d = dirstat(".git") == nil)
+	ARGBEGIN{
+	}ARGEND;
+	gitinit();
+	if(access(".git", AEXIST) != 0)
 		sysfatal("could not find git repo: %r\n");
-	if(objify(".", &h))
-		sysfatal("could not commit: %r\n")
-	if(mkcommit("test", h) == -1)
+	r = treeify("/tmp/newcommit", &t);
+	if(r == -1)
 		sysfatal("could not commit: %r\n");
+	if(r == 0)
+		sysfatal("empty commit: aborting\n");
+	mkcommit(&c, "test", "Ori Bernstein <ori@eigenstate.org>", &Zhash, 1, t);
+	print("committed %H\n", c);
 }
