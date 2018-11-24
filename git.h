@@ -1,7 +1,7 @@
 #include <bio.h>
-#include <ctype.h>
 #include <mp.h>
 #include <libsec.h>
+#include <ctype.h>
 #include <flate.h>
 #include <avl.h>
 #include <regexp.h>
@@ -115,6 +115,7 @@ struct Object {
 
 extern Reprog *authorpat;
 extern Avltree *objcache;
+extern Hash Zhash;
 
 #pragma varargck type "H" Hash
 #pragma varargck type "T" Type
@@ -137,6 +138,7 @@ int readall(int, char *, int);
 int writeall(int, char *, int);
 int slurpdir(char *, Dir **);
 int hparse(Hash *, char *);
+int compress(Biobuf *, void *, int);
 int bdecompress(Buf *, Biobuf *, vlong *);
 int decompress(void **, Biobuf *, vlong *);
 int hassuffix(char *, char *);

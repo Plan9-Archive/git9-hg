@@ -3,6 +3,7 @@
 #include "git.h"
 
 Reprog *authorpat;
+Hash Zhash;
 
 static int
 charval(int c, int *err)
@@ -121,6 +122,7 @@ gitinit(void)
 	fmtinstall('T', Tfmt);
 	fmtinstall('O', Ofmt);
 	inflateinit();
+	deflateinit();
 	authorpat = regcomp("[\t ]*(.*)[\t ]+([0-9]+)[\t ]+([\\-+][0-9]+)");
 	objcache = avlcreate(objcmp);
 }

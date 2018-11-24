@@ -5,8 +5,7 @@ TARG=\
 	fs\
 	show\
 	fetch\
-
-#	commit
+	commit
 
 OFILES=\
 	pack.$O\
