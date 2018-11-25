@@ -123,6 +123,7 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 int
 dialssh(char *, char *, char *)
 {
+	werrstr("unimplemented protocol");
 	return -1;
 }
 
@@ -169,6 +170,25 @@ resolveref(Hash *h, char *ref)
 }
 
 int
+rename(char *pack, char *idx, Hash h)
+{
+	char name[128];
+	Dir st;
+
+	nulldir(&st);
+	st.name = name;
+	snprint(name, sizeof(name), "%H.pack", h);
+	print("rename %s => %s\n", pack, st.name);
+	if(dirwstat(pack, &st) == -1)
+		return -1;
+	snprint(name, sizeof(name), "%H.idx", h);
+	print("rename %s => %s\n", idx, st.name);
+	if(dirwstat(idx, &st) == -1)
+		return -1;
+	return 0;
+}
+
+int
 fetchpack(int fd, char *packtmp)
 {
 	char buf[65536];
@@ -179,7 +199,6 @@ fetchpack(int fd, char *packtmp)
 	Hash want[64];
 	int i, n, nref, req, pfd;
 
-	req = 0;
 	memset(&zero, 0, sizeof(Hash));
 	for(i = 0; i < nelem(want); i++){
 		n = readpkt(fd, buf, sizeof(buf));
@@ -198,6 +217,7 @@ fetchpack(int fd, char *packtmp)
 	}
 	nref = i;
 
+	req = 0;
 	for(i = 0; i < nref; i++){
 		if(memcmp(have[i].h, want[i].h, sizeof(have[i].h)) == 0)
 			continue;
@@ -242,6 +262,8 @@ fetchpack(int fd, char *packtmp)
 	memcpy(idxtmp + n, ".idx", strlen(".idx") + 1);
 	if(indexpack(packtmp, idxtmp, &h) == -1)
 		sysfatal("could not index fetched pack: %r");
+	if(rename(packtmp, idxtmp, h) == -1)
+		sysfatal("could not rename indexed pack: %r");
 	return 0;
 }
 
