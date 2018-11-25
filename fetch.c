@@ -121,9 +121,26 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 }
 
 int
-dialssh(char *, char *, char *)
+dialssh(char *host, char *, char *path)
 {
-	werrstr("unimplemented protocol");
+	int pid, pfd[2];
+
+	print("dialing via ssh %s...\n", host);
+	if(pipe(pfd) == -1)
+		sysfatal("unable to open pipe: %r\n");
+	pid = fork();
+	if(pid == -1)
+		sysfatal("unable to fork");
+	if(pid == 0){
+		close(pfd[1]);
+		dup(pfd[0], 0);
+		dup(pfd[0], 1);
+		execl("/bin/ssh", "ssh", host, "git-upload-pack", path, nil);
+	}else{
+		close(pfd[0]);
+		print("talking over fd %d\n", pfd[1]);
+		return pfd[1];
+	}
 	return -1;
 }
 
