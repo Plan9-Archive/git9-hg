@@ -1,0 +1,33 @@
+#!/bin/rc
+
+rfork en
+
+if(~ $#* 1){
+	remote=$1
+	local=`{basename $1 .git}
+}
+if not if(~ $#* 2){
+	remote=$1
+	local=$2
+}
+if not{
+	echo usage: git/clone remote [local] >[1=2]
+	exit usage
+}
+
+if(test -e $local){
+	echo $local already exists
+	exit exists
+}
+
+if(! test -e /n/git/ctl)
+	git/fs
+
+mkdir -p $local/.git
+cd $local
+
+dircp /lib/git/template .git
+echo '[remote "origin"]' 				>> .git/config
+echo '	url='$remote					>> .git/config
+echo '	fetch=+refs/heads/*:refs/remotes/origin/*'	>> .git/config
+git/fetch $remote

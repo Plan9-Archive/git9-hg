@@ -288,7 +288,7 @@ void
 main(int argc, char **argv)
 {
 	char proto[Nproto], host[Nhost], port[Nport];
-	char repo[Nrepo], path[Npath], packtmp[Npath];
+	char repo[Nrepo], path[Npath];
 	int fd;
 
 	ARGBEGIN{
@@ -317,8 +317,7 @@ main(int argc, char **argv)
 	
 	if(fd == -1)
 		sysfatal("could not dial %s:%s: %r", proto, host);
-	snprint(packtmp, sizeof(packtmp), "%s/.git/objects/pack/fetch.tmp", repo);
-	if(fetchpack(fd, packtmp) == -1)
+	if(fetchpack(fd, ".git/objects/pack/fetch.tmp") == -1)
 		sysfatal("fetch failed: %r");
 
 }
