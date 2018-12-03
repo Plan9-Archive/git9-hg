@@ -656,7 +656,6 @@ indexpack(char *pack, char *idx, Hash *ph)
 	int nobj, nvalid, nbig, n, i;
 	Object *o, **objects;
 	DigestState *st;
-	Hash h;
 	char *valid;
 	Biobuf *f;
 	int c;
@@ -753,8 +752,8 @@ indexpack(char *pack, char *idx, Hash *ph)
 		}
 	}
 	hwrite(f, ph->h, sizeof(ph->h), &st);
-	sha1(nil, 0, h.h, st);
-	Bwrite(f, h.h, sizeof h.h);
+	sha1(nil, 0, ph->h, st);
+	Bwrite(f, ph->h, sizeof(ph->h));
 	free(objects);
 	free(valid);
 	Bterm(f);

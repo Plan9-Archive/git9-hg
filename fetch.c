@@ -19,7 +19,7 @@ Object *indexed;
 void
 usage(void)
 {
-	print("git/pull remote [reponame]\n");
+	print("git/fetch remote [reponame]\n");
 	exits("usage");
 }
 
