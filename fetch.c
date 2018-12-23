@@ -30,7 +30,7 @@ readpkt(int fd, char *buf, int nbuf)
 	char *e;
 	int n;
 
-	if(readall(fd, len, 4) == -1)
+	if(readn(fd, len, 4) == -1)
 		return -1;
 	len[4] = 0;
 	n = strtol(len, &e, 16);
@@ -41,7 +41,7 @@ readpkt(int fd, char *buf, int nbuf)
 	n  -= 4;
 	if(n >= nbuf)
 		sysfatal("buffer too small");
-	if(readall(fd, buf, n) != n)
+	if(readn(fd, buf, n) != n)
 		return -1;
 	buf[n] = 0;
 	return n;
@@ -181,7 +181,7 @@ resolveref(Hash *h, char *ref)
 	}
 	if((f = open(buf, OREAD)) == -1)
 		return -1;
-	if(readall(f, s, sizeof(s)) >= 40)
+	if(readn(f, s, sizeof(s)) >= 40)
 		r = hparse(h, s);
 	return r;
 }
@@ -211,12 +211,10 @@ fetchpack(int fd, char *packtmp)
 	char buf[65536];
 	char idxtmp[256];
 	char *sp[3];
-	Hash zero, h;
-	Hash have[64];
+	Hash h, have[64];
 	Hash want[64];
 	int i, n, nref, req, pfd;
 
-	memset(&zero, 0, sizeof(Hash));
 	for(i = 0; i < nelem(want); i++){
 		n = readpkt(fd, buf, sizeof(buf));
 		if(n == -1)
@@ -246,7 +244,7 @@ fetchpack(int fd, char *packtmp)
 	}
 	flushpkt(fd);
 	for(i = 0; i < nref; i++){
-		if(memcmp(have[i].h, zero.h, sizeof(zero.h)) == 0)
+		if(memcmp(have[i].h, Zhash.h, sizeof(Zhash.h)) == 0)
 			continue;
 		n = snprint(buf, sizeof(buf), "have %H\n", have[i]);
 		if(writepkt(fd, buf, n + 1) == -1)

@@ -157,13 +157,29 @@ mkcommit(Hash *c, char *msg, char *author, Hash *parents, int nparents, Hash tre
 }
 
 void
+usage(void)
+{
+	print("usage: git/commit -a author -m message dir");
+	exits("usage");
+}
+
+void
 main(int argc, char **argv)
 {
 	Hash c, t;
+	char *msg, *author;
 	int r;
 
+
+	msg = nil;
+	author = nil;
 	ARGBEGIN{
+	case 'm':	msg = EARGF(usage());		break;
+	case 'a':	author = EARGF(usage());	break;
 	}ARGEND;
+	if(!msg || !author)
+		usage();
+
 	gitinit();
 	if(access(".git", AEXIST) != 0)
 		sysfatal("could not find git repo: %r\n");
@@ -172,6 +188,6 @@ main(int argc, char **argv)
 		sysfatal("could not commit: %r\n");
 	if(r == 0)
 		sysfatal("empty commit: aborting\n");
-	mkcommit(&c, "test", "Ori Bernstein <ori@eigenstate.org>", &Zhash, 1, t);
+	mkcommit(&c, msg, author, &Zhash, 1, t);
 	print("committed %H\n", c);
 }

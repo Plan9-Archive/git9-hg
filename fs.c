@@ -495,7 +495,9 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 		}
 		break;
 	case Qbranch:
-		if(snprint(path, sizeof(path), "%s/%s", aux->refpath, name) >= sizeof(path))
+		if(strcmp(aux->refpath, ".git/refs/heads") == 0 && strcmp(name, "HEAD") == 0)
+			snprint(path, sizeof(path), ".git/HEAD");
+		else if(snprint(path, sizeof(path), "%s/%s", aux->refpath, name) >= sizeof(path))
 			return E2long;
 		if((d = dirstat(path)) == nil)
 			return Eexist;

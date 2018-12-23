@@ -5,6 +5,7 @@ TARG=\
 	fs\
 	show\
 	fetch\
+	send\
 	commit
 
 OFILES=\
@@ -14,3 +15,6 @@ OFILES=\
 HFILES=git.h
 
 </sys/src/cmd/mkmany
+
+install:
+	for 
