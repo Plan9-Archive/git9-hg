@@ -5,8 +5,15 @@ TARG=\
 	fs\
 	show\
 	fetch\
+<<<<<<< local
+	commit\
+=======
+>>>>>>> other
 	send\
+<<<<<<< local
+=======
 	commit
+>>>>>>> other
 
 OFILES=\
 	pack.$O\
