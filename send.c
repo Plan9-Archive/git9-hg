@@ -14,6 +14,8 @@ enum {
 };
 
 int chatty;
+int pushall;
+char *curbranch = "master";
 char *base = "/n/git";
 Object *indexed;
 
@@ -188,17 +190,33 @@ resolveref(Hash *h, char *ref)
 }
 
 int
-sendpack(int fd, char **branch, int nbranch)
+addknown(Hash h)
+{
+	USED(h);
+	return 0;
+}
+
+int
+writepack(int fd, Hash *theirs, int ntheirs, Hash *send, int nsend)
+{
+	USED(fd); USED(theirs); USED(ntheirs); USED(send); USED(nsend);
+	return -1;
+}
+
+int
+sendpack(int fd)
 {
 	char buf[65536];
 	char *sp[3];
 	Hash zero;
-	Hash have[64];
-	Hash want[64];
-	int i, n, nref, req;
+	Hash theirs[64];
+	Hash ours[64];
+	char refnames[64][64];
+	int i, n, nref, updating;
 
+	nref = 0;
 	memset(&zero, 0, sizeof(Hash));
-	for(i = 0; i < nelem(want); i++){
+	for(i = 0; i < nelem(theirs); i++){
 		n = readpkt(fd, buf, sizeof(buf));
 		if(n == -1)
 			return -1;
@@ -206,64 +224,45 @@ sendpack(int fd, char **branch, int nbranch)
 			break;
 		if(strncmp(buf, "ERR ", 4) == 0)
 			sysfatal("%s", buf + 4);
-		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
-		if(hparse(&want[i], sp[0]) == -1)
-			sysfatal("invalid hash %s", sp[0]);
-		if(resolveref(&have[i], sp[1]) == -1)
-			memset(&have[i], 0, 0);
-		print("they have %s: %H, we have %H\n", sp[1], want[i], have[i]);
-	}
-	nref = i;
 
-	req = 0;
-	for(i = 0; i < nref; i++){
-		if(memcmp(have[i].h, want[i].h, sizeof(have[i].h)) == 0)
+		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
+		if(resolveref(&ours[nref], sp[1]) == -1)
 			continue;
-		n = snprint(buf, sizeof(buf), "want %H", want[i]);
-		print("want %H\n", want[i]);
-		if(writepkt(fd, buf, n) == -1)
-			sysfatal("could not send want for %H", want[i]);
-		req = 1; 
+		if(hparse(&theirs[nref], sp[0]) == -1)
+			sysfatal("invalid hash %s", sp[0]);
+		if(snprint(refnames[nref], sizeof(refnames[nref]), sp[1]) >= sizeof(refnames[i]))
+			sysfatal("overlong ref %s", sp[1]);
+		nref++;
+		print("they have %s: %H\n", refnames[nref], theirs[nref]);
 	}
+
+	updating = 0;
+	for(i = 0; i < nref; i++){
+		if(pushall || strcmp(curbranch, refnames[i]) == 0){
+			n = snprint(buf, sizeof(buf), "update %s %H\r\n", refnames[i], ours[i]);
+			if(n >= sizeof(buf))
+				sysfatal("overlong update\n");
+			if(writepkt(fd, buf, n) == -1)
+				sysfatal("unable to send update pkt");
+			updating = 1;
+		}
+	}
+	if(!updating)
+		sysfatal("nothing to do here\n");
 	flushpkt(fd);
-	for(i = 0; i < nref; i++){
-		if(memcmp(have[i].h, zero.h, sizeof(zero.h)) == 0)
-			continue;
-		n = snprint(buf, sizeof(buf), "have %H\n", have[i]);
-		if(writepkt(fd, buf, n + 1) == -1)
-			sysfatal("could not send have for %H", have[i]);
-	}
-	if(!req){
-		flushpkt(fd);
-		print("up to date\n");
-	}
-	n = snprint(buf, sizeof(buf), "done\n");
-	if(writepkt(fd, buf, n) == -1)
-		sysfatal("lost connection write");
-	if(readpkt(fd, buf, sizeof(buf)) == -1)
-		sysfatal("lost connection read");
-	print("sending wanted refs...\n");
-	USED(branch);
-	USED(nbranch);
-	return 0;
+	return writepack(fd, theirs, nref, ours, nref);
 }
 
 void
 main(int argc, char **argv)
 {
 	char proto[Nproto], host[Nhost], port[Nport];
-	char repo[Nrepo], path[Npath], *branch[Nbranch];
-	int fd, nbranch;
+	char repo[Nrepo], path[Npath];
+	int fd;
 
-	nbranch = 0;
 	ARGBEGIN{
 	case '?':
 		usage();
-		break;
-	case 'b':
-		if(nbranch == nelem(branch))
-			sysfatal("too many branches specified");
-		branch[nbranch++] = EARGF(usage());
 		break;
 	case 'd':
 		chatty++;
@@ -273,8 +272,6 @@ main(int argc, char **argv)
 	gitinit();
 	if(argc != 1 && argc != 2)
 		usage();
-	if(nbranch == 0)
-		branch[nbranch++] = "master";
 	fd = -1;
 	if(access("/n/git/ctl", AEXIST) == -1)
 		sysfatal("expect /n/git to be mounted");
@@ -293,7 +290,7 @@ main(int argc, char **argv)
 	
 	if(fd == -1)
 		sysfatal("could not dial %s:%s: %r", proto, host);
-	if(sendpack(fd, branch, nbranch) == -1)
+	if(sendpack(fd) == -1)
 		sysfatal("fetch failed: %r");
 
 }
