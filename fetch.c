@@ -228,7 +228,7 @@ fetchpack(int fd, char *packtmp)
 			sysfatal("invalid hash %s", sp[0]);
 		if(resolveref(&have[i], sp[1]) == -1)
 			memset(&have[i], 0, 0);
-		print("they have %s: %H, we have %H\n", sp[1], want[i], have[i]);
+		print("remote %s %H local %H\n", sp[1], want[i], have[i]);
 	}
 	nref = i;
 
@@ -298,8 +298,7 @@ main(int argc, char **argv)
 	if(argc != 1 && argc != 2)
 		usage();
 	fd = -1;
-	if(access("/n/git/ctl", AEXIST) == -1)
-		sysfatal("expect /n/git to be mounted");
+
 	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
 		sysfatal("bad uri %s", argv0);
 	if(argc == 2)
