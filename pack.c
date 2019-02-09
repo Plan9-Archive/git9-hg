@@ -653,7 +653,7 @@ int
 indexpack(char *pack, char *idx, Hash *ph)
 {
 	char hdr[4*3], buf[8];
-	int nobj, nvalid, nbig, n, i;
+	int nobj, nvalid, nbig, n, i, step;
 	Object *o, **objects;
 	DigestState *st;
 	char *valid;
@@ -676,6 +676,9 @@ indexpack(char *pack, char *idx, Hash *ph)
 	nobj = GETBE32(hdr + 8);
 	objects = calloc(nobj, sizeof(Object*));
 	valid = calloc(nobj, sizeof(char));
+	step = nobj/100;
+	if(!step)
+		step++;
 	while(nvalid != nobj){
 		print("indexing (%d/%d):", nvalid, nobj);
 		n = 0;
@@ -684,7 +687,7 @@ indexpack(char *pack, char *idx, Hash *ph)
 				n++;
 				continue;
 			}
-			if(i % (nobj/100) == 0)
+			if(i % step == 0)
 				print(".");
 			if(objects[i]){
 				Bseek(f, o->off, 0);
