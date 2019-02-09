@@ -382,9 +382,10 @@ gitattach(Req *r)
 }
 
 static char*
-gitclone(Fid *, Fid *n)
+gitclone(Fid *o, Fid *n)
 {
 	n->aux = emalloc(sizeof(Gitaux));
+	memcpy(n->aux, o->aux, sizeof(Gitaux));
 	return nil;
 }
 
@@ -403,6 +404,8 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 			if(strcmp(o->ent[i].name, name) != 0)
 				continue;
 			w = readobject(o->ent[i].h);
+			if(!w)
+				sysfatal("could not read object %H (%s)", o->ent[i].h, o->ent[i].name);
 			aux->obj = readobject(o->ent[i].h);
 			qid->type = (w->type == GTree) ? QTDIR : 0;
 			qid->path = QPATH(w->id, qdir);
