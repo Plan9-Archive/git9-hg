@@ -51,6 +51,7 @@ struct Ols {
 
 typedef struct Gitaux Gitaux;
 struct Gitaux {
+	char 	*objpath;
 	Object	*obj;
 	char 	*refpath;
 	Ols	*ols;
@@ -64,8 +65,6 @@ char *qroot[] = {
 };
 
 char *username;
-
-
 
 static int
 rootgen(int i, Dir *d, void *)
@@ -377,7 +376,7 @@ gitattach(Req *r)
 {
 	r->ofcall.qid = (Qid){Qroot, 0, QTDIR};
 	r->fid->qid = r->ofcall.qid;
-	r->fid->aux = emalloc(sizeof(Gitaux));;
+	r->fid->aux = emalloc(sizeof(Gitaux));
 	respond(r, nil);
 }
 
@@ -413,6 +412,7 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 		}
 	}else if(o->type == GCommit){
 		qid->type = 0;
+		assert(qdir == Qcommit);
 		if(strcmp(name, "msg") == 0)
 			qid->path = QPATH(aux->obj->id, Qcommitmsg);
 		else if(strcmp(name, "parent") == 0)
@@ -431,6 +431,7 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 	}else if(o->type == GTag){
 		e = "tag walk unsupported";
 	}
+	aux->objpath = smprint("%s/%s", aux->objpath, name);
 	return e;
 }
 
@@ -471,7 +472,50 @@ readref(char *pathstr)
 	return readobject(h);
 }
 
-static char *
+static Object*
+walkobj(char *path)
+{
+	USED(path);
+	return nil;
+}
+
+static char*
+walkdotdot(Fid *fid, Qid *qid)
+{
+	Gitaux *aux;
+	Object *o;
+	char *p;
+
+	aux = fid->aux;
+	switch(QDIR(&fid->qid)){
+	case Qroot:
+		break;
+	case Qbranch:
+		if(strcmp(aux->refpath, ".git/refs/heads") == 0){
+			*qid = (Qid){Qroot, 0, QTDIR};
+		} else if ((p = strchr(aux->refpath, '/')) != nil){
+			*p = 0;
+		}
+		break;
+	case Qobject:
+		if(!aux->obj)
+			goto other;
+		o = walkobj(aux->objpath);
+		qid->path = QPATH(o->id, Qobject);
+		break;
+	case Qcommittree:
+		qid->path = QPATH(aux->obj->id, Qcommit);
+		break;
+	default:
+other:
+		*qid = (Qid){Qroot, 0, QTDIR}; 
+	}
+	fid->qid = *qid;
+	return nil;
+		
+}
+
+static char*
 gitwalk1(Fid *fid, char *name, Qid *qid)
 {
 	char path[128];
@@ -482,6 +526,10 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 
 	e = nil;
 	aux = fid->aux;
+
+	if(strcmp(name, "..") == 0)
+		return walkdotdot(fid, qid);
+	
 	switch(QDIR(&fid->qid)){
 	case Qroot:
 		if(strcmp(name, "object") == 0){
