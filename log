@@ -3,7 +3,10 @@
 rfork e
 
 base=/n/git/object/
-commits=($1)
+branch=$1
+if(~ $1 '')
+	branch='master'
+commits=($branch)
 if(test -e /n/git/branch/$1)
 	commits=`{cat /n/git/branch/$1/hash}
 

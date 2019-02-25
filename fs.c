@@ -412,7 +412,7 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 		}
 	}else if(o->type == GCommit){
 		qid->type = 0;
-		assert(qdir == Qcommit);
+		assert(qdir == Qcommit || qdir == Qobject || qdir == Qcommittree);
 		if(strcmp(name, "msg") == 0)
 			qid->path = QPATH(aux->obj->id, Qcommitmsg);
 		else if(strcmp(name, "parent") == 0)
@@ -487,15 +487,15 @@ walkdotdot(Fid *fid, Qid *qid)
 	char *p;
 
 	aux = fid->aux;
+	qid->type = QTDIR;
 	switch(QDIR(&fid->qid)){
 	case Qroot:
 		break;
 	case Qbranch:
-		if(strcmp(aux->refpath, ".git/refs/heads") == 0){
+		if(strcmp(aux->refpath, ".git/refs/heads") == 0)
 			*qid = (Qid){Qroot, 0, QTDIR};
-		} else if ((p = strchr(aux->refpath, '/')) != nil){
+		else if ((p = strchr(aux->refpath, '/')) != nil)
 			*p = 0;
-		}
 		break;
 	case Qobject:
 		if(!aux->obj)
