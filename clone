@@ -31,6 +31,7 @@ echo '	url='$remote					>> .git/config
 echo '	fetch=+refs/heads/*:refs/remotes/origin/*'	>> .git/config
 git/fetch $remote | awk '
 	/^remote/{
+		gsub("^refs/heads", "refs/remotes/origin", $2)
 		outfile = ".git/" $2
 		system("mkdir -p `{basename -d "outfile"}")
 		print $3 > outfile
@@ -41,8 +42,9 @@ git/fetch $remote | awk '
 	}
 '
 if(test -f .git/refs/remotes/origin/master){
+	mkdir -p .git/refs/heads/
 	cp .git/refs/remotes/origin/master .git/refs/heads/master
 	if(! test -e /n/git/ctl)
 		git/fs
-	dircp /n/git/branch/master/tree .
+	dircp /n/git/branch/heads/master/tree .
 }
