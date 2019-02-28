@@ -32,6 +32,10 @@ enum {
 	Qmax,
 };
 
+enum {
+	Npath = 64,
+};
+
 struct Ols {
 	int qtype;
 	int l0;
@@ -51,7 +55,8 @@ struct Ols {
 
 typedef struct Gitaux Gitaux;
 struct Gitaux {
-	char 	*objpath;
+	Qid	 path[Npath];
+	int	 npath;
 	Object	*obj;
 	char 	*refpath;
 	Ols	*ols;
@@ -431,7 +436,10 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 	}else if(o->type == GTag){
 		e = "tag walk unsupported";
 	}
-	aux->objpath = smprint("%s/%s", aux->objpath, name);
+	if(aux->npath >= Npath)
+		e = E2long;
+	else
+		aux->path[aux->npath++] = *qid;
 	return e;
 }
 
@@ -472,48 +480,7 @@ readref(char *pathstr)
 	return readobject(h);
 }
 
-static Object*
-walkobj(char *path)
-{
-	USED(path);
-	return nil;
-}
 
-static char*
-walkdotdot(Fid *fid, Qid *qid)
-{
-	Gitaux *aux;
-	Object *o;
-	char *p;
-
-	aux = fid->aux;
-	qid->type = QTDIR;
-	switch(QDIR(&fid->qid)){
-	case Qroot:
-		break;
-	case Qbranch:
-		if(strcmp(aux->refpath, ".git/refs/heads") == 0)
-			*qid = (Qid){Qroot, 0, QTDIR};
-		else if ((p = strchr(aux->refpath, '/')) != nil)
-			*p = 0;
-		break;
-	case Qobject:
-		if(!aux->obj)
-			goto other;
-		o = walkobj(aux->objpath);
-		qid->path = QPATH(o->id, Qobject);
-		break;
-	case Qcommittree:
-		qid->path = QPATH(aux->obj->id, Qcommit);
-		break;
-	default:
-other:
-		*qid = (Qid){Qroot, 0, QTDIR}; 
-	}
-	fid->qid = *qid;
-	return nil;
-		
-}
 
 static char*
 gitwalk1(Fid *fid, char *name, Qid *qid)
@@ -523,12 +490,17 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 	char *e;
 	Dir *d;
 	Hash h;
+	int n;
 
 	e = nil;
 	aux = fid->aux;
 
-	if(strcmp(name, "..") == 0)
-		return walkdotdot(fid, qid);
+	if(strcmp(name, "..") == 0){
+		n = aux->npath ? aux->npath - 1 : 0;
+		fid->qid = aux->path[n];
+		*qid = fid->qid;
+		return nil;
+	}
 	
 	switch(QDIR(&fid->qid)){
 	case Qroot:
