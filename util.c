@@ -251,9 +251,7 @@ hassuffix(char *base, char *suf)
 
 	nb = strlen(base);
 	ns = strlen(suf);
-	if(ns > nb)
-		return -1;
-	if(strcmp(base + (nb - ns), suf) == 0)
+	if(ns <= nb && strcmp(base + (nb - ns), suf) == 0)
 		return 1;
 	return 0;
 }
