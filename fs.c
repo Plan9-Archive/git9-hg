@@ -19,7 +19,7 @@ char *Egreg = "wat";
 
 enum {
 	Qroot,
-	Qbranch,
+		Qbranch,
 	Qcommit,
 	Qcommitmsg,
 	Qcommitparent,
@@ -510,7 +510,7 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 			olsinit(aux->ols);
 		}else if(strcmp(name, "branch") == 0){
 			*qid = (Qid){Qbranch, 0, QTDIR};
-			aux->refpath = estrdup(".git/refs/heads");
+			aux->refpath = estrdup(".git/refs/");
 		}else if(strcmp(name, "ctl") == 0){
 			*qid = (Qid){Qctl, 0, 0};
 		}else{
