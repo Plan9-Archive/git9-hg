@@ -121,13 +121,18 @@ static int
 gtreegen(int i, Dir *d, void *p)
 {
 	Gitaux *aux;
+	Object *o;
 
 	aux = p;
 	if(i >= aux->obj->nent)
 		return -1;
+	
+	if((o = readobject(aux->obj->ent[i].h)) == nil)
+		sysfatal("could not read object %H", aux->obj->ent[i].h);
 	d->mode = aux->obj->ent[i].mode;
 	d->name = estrdup9p(aux->obj->ent[i].name);
-	d->qid.path = QPATH(aux->obj->id, aux->qdir);
+	d->qid.path = QPATH(o->id, aux->qdir);
+	d->length = o->size;
 	return 0;
 }
 
@@ -173,15 +178,23 @@ gcommitgen(int i, Dir *d, void *p)
 }
 
 static void
-obj2dir(Dir *d, Object *o)
+obj2dir(Dir *d, Object *o, long qdir)
 {
 	char name[64];
 
 	snprint(name, sizeof(name), "%H", o->hash);
 	d->name = estrdup9p(name);
-	d->qid.type = (o->type == GBlob) ? 0 : QTDIR;
-	d->mode = (o->type == GBlob) ? 0644 : 0755 | DMDIR;
-	d->qid.path = QPATH(o->id, Qobject);
+	d->qid.type = QTDIR;
+	d->qid.path = QPATH(o->id, qdir);
+	d->atime = o->ctime;
+	d->mtime = o->mtime;
+	d->mode = 0755 | DMDIR;
+	if(o->type == GBlob || o->type == GTag){
+		d->qid.type = 0;
+		d->mode = 0644;
+		d->length = o->size;
+	}
+
 }
 
 int
@@ -275,7 +288,7 @@ objgen1(Dir *d, Ols *st)
 					return -1;
 				if((o = readobject(h)) == nil)
 					return -1;
-				obj2dir(d, o);
+				obj2dir(d, o, Qobject);
 				st->lp++;
 				st->oprev = o;
 				return 0;
@@ -289,7 +302,7 @@ objgen1(Dir *d, Ols *st)
 					return -1;
 				if((o = readobject(h)) == nil)
 					return -1;
-				obj2dir(d, o);
+				obj2dir(d, o, Qobject);
 				st->l1++;
 				st->oprev = o;
 				return 0;
@@ -308,7 +321,7 @@ objgen(int i, Dir *d, void *p)
 	st = p;
 	/* We tried to sent it, but it didn't fit */
 	if(st->oprev && i == st->last - 1){
-		obj2dir(d, st->oprev);
+		obj2dir(d, st->oprev, Qobject);
 		st->oprev = nil;
 		return 0;
 	}
@@ -494,6 +507,7 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 
 	e = nil;
 	aux = fid->aux;
+	qid->vers = 0;
 
 	if(strcmp(name, "..") == 0){
 		n = aux->npath ? aux->npath - 1 : 0;
@@ -650,8 +664,8 @@ gitstat(Req *r)
 	r->d.qid = r->fid->qid;
 	r->d.mode = 0755 | DMDIR;
 	if(aux->obj){
-		r->d.atime = aux->obj->ctime;
-		r->d.mtime = aux->obj->mtime;
+		obj2dir(&r->d, aux->obj, QDIR(q));
+		goto done;
 	}
 
 	switch(QDIR(q)){
@@ -659,14 +673,13 @@ gitstat(Req *r)
 		r->d.name = estrdup9p("/");
 		break;
 	case Qbranch:
-		if(aux && aux->obj)
-			goto statobj;
-		r->d.name = estrdup9p("branch");
+		if(aux->obj)
+			r->d.name = estrdup9p("branch");
 		break;
 	case Qobject:
-		if(aux && aux->obj)
-			goto statobj;
-		r->d.name = estrdup9p("object");
+		if(!aux->obj)
+			r->d.name = estrdup9p("object");
+		break;
 	case Qctl:
 		r->d.name = estrdup9p("ctl");
 		r->d.mode = 0666;
@@ -692,13 +705,8 @@ gitstat(Req *r)
 	default:
 		sysfatal("stat: bad qid");
 	}
-	if(0){
-statobj:
-		r->d.name = emalloc9p(41);
-		if(aux->obj->type == GBlob || aux->obj->type == GTag)
-			r->d.mode = 0644;
-		snprint(r->d.name, 41, "%H", aux->obj->hash);
-	}
+
+done:
 	respond(r, nil);
 }
 
