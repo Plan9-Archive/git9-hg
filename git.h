@@ -110,6 +110,8 @@ struct Object {
 		(b)[7] = (n) >> 0; \
 	} while(0)
 
+#define QDIR(qid)	((qid)->path & (0xff))
+#define QPATH(id, dt)	(((id) << 8) | ((dt) & 0xff))
 #define isblank(c) \
 	(((c) != '\n') && isspace(c))
 
@@ -124,6 +126,7 @@ extern Hash Zhash;
 int Hfmt(Fmt*);
 int Tfmt(Fmt*);
 int Ofmt(Fmt*);
+int Qfmt(Fmt*);
 
 void gitinit(void);
 

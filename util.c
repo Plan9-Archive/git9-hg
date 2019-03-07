@@ -107,6 +107,16 @@ Ofmt(Fmt *fmt)
 	return l;
 }
 
+int
+Qfmt(Fmt *fmt)
+{
+	Qid q;
+
+	q = va_arg(fmt->args, Qid);
+	return fmtprint(fmt, "Qid{path=0x%llx(dir:%lld,obj:%lld), vers=%ld, type=%d}",
+	    q.path, QDIR(&q), (q.path >> 8), q.vers, q.type);
+}
+
 static int
 objcmp(Avl *aa, Avl *bb)
 {
@@ -121,6 +131,7 @@ gitinit(void)
 	fmtinstall('H', Hfmt);
 	fmtinstall('T', Tfmt);
 	fmtinstall('O', Ofmt);
+	fmtinstall('Q', Qfmt);
 	inflateinit();
 	deflateinit();
 	authorpat = regcomp("[\t ]*(.*)[\t ]+([0-9]+)[\t ]+([\\-+][0-9]+)");
