@@ -7,8 +7,6 @@
 #include "git.h"
 
 char *mtpt = "/n/git";
-#define QDIR(qid)	((qid)->path & (0xff))
-#define QPATH(id, dt)	(((id) << 8) | ((dt) & 0xff))
 typedef struct Ols Ols;
 
 char *Eperm = "permission denied";
@@ -56,6 +54,7 @@ struct Ols {
 typedef struct Gitaux Gitaux;
 struct Gitaux {
 	Qid	 path[Npath];
+	Object  *opath[Npath];
 	int	 npath;
 	Object	*obj;
 	char 	*refpath;
@@ -369,7 +368,7 @@ objread(Req *r, Gitaux *aux)
 		dirread9p(r, gcommitgen, aux);
 		break;
 	default:
-		die("invalid object type");
+		die("invalid object type %d", o->type);
 	}
 }
 
@@ -392,9 +391,15 @@ readcommitparent(Req *r, Object *o)
 static void
 gitattach(Req *r)
 {
+	Gitaux *aux;
+
+	aux = emalloc(sizeof(Gitaux));
+	aux->path[0] = (Qid){Qroot, 0, QTDIR};
+	aux->opath[0] = nil;
+	aux->npath = 1;
 	r->ofcall.qid = (Qid){Qroot, 0, QTDIR};
 	r->fid->qid = r->ofcall.qid;
-	r->fid->aux = emalloc(sizeof(Gitaux));
+	r->fid->aux = aux;
 	respond(r, nil);
 }
 
@@ -407,7 +412,7 @@ gitclone(Fid *o, Fid *n)
 }
 
 static char *
-objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
+objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 {
 	Object *o, *w;
 	char *e;
@@ -416,7 +421,7 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 	e = nil;
 	o = aux->obj;
 	if(o->type == GTree){
-		qid->type = 0;
+		q->type = 0;
 		for(i = 0; i < o->nent; i++){
 			if(strcmp(o->ent[i].name, name) != 0)
 				continue;
@@ -424,24 +429,24 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 			if(!w)
 				die("could not read object %H (%s)", o->ent[i].h, o->ent[i].name);
 			aux->obj = readobject(o->ent[i].h);
-			qid->type = (w->type == GTree) ? QTDIR : 0;
-			qid->path = QPATH(w->id, qdir);
+			q->type = (w->type == GTree) ? QTDIR : 0;
+			q->path = QPATH(w->id, qdir);
 			aux->obj = w;
 		}
 	}else if(o->type == GCommit){
-		qid->type = 0;
+		q->type = 0;
 		assert(qdir == Qcommit || qdir == Qobject || qdir == Qcommittree);
 		if(strcmp(name, "msg") == 0)
-			qid->path = QPATH(aux->obj->id, Qcommitmsg);
+			q->path = QPATH(aux->obj->id, Qcommitmsg);
 		else if(strcmp(name, "parent") == 0)
-			qid->path = QPATH(aux->obj->id, Qcommitparent);
+			q->path = QPATH(aux->obj->id, Qcommitparent);
 		else if(strcmp(name, "hash") == 0)
-			qid->path = QPATH(aux->obj->id, Qcommithash);
+			q->path = QPATH(aux->obj->id, Qcommithash);
 		else if(strcmp(name, "author") == 0)
-			qid->path = QPATH(aux->obj->id, Qcommitauthor);
+			q->path = QPATH(aux->obj->id, Qcommitauthor);
 		else if(strcmp(name, "tree") == 0){
-			qid->type = QTDIR;
-			qid->path = QPATH(aux->obj->id, Qcommittree);
+			q->type = QTDIR;
+			q->path = QPATH(aux->obj->id, Qcommittree);
 			aux->obj = readobject(aux->obj->tree);
 		}
 		else
@@ -449,10 +454,6 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 	}else if(o->type == GTag){
 		e = "tag walk unsupported";
 	}
-	if(aux->npath >= Npath)
-		e = E2long;
-	else
-		aux->path[aux->npath++] = *qid;
 	return e;
 }
 
@@ -503,25 +504,27 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 	char *e;
 	Dir *d;
 	Hash h;
-	int n;
 
 	e = nil;
 	aux = fid->aux;
 	q->vers = 0;
 
 	if(strcmp(name, "..") == 0){
-		n = aux->npath ? aux->npath - 1 : 0;
-		*q = aux->path[n];
+		if(aux->npath > 1)
+			aux->npath--;
+		*q = aux->path[aux->npath - 1];
+		aux->obj = aux->opath[aux->npath - 1];
 		fid->qid = *q;
 		return nil;
 	}
 	
+
 	switch(QDIR(&fid->qid)){
 	case Qroot:
 		if(strcmp(name, "object") == 0){
+			*q = (Qid){Qobject, 0, QTDIR};
 			aux->ols = emalloc(sizeof(*aux->ols));
 			olsinit(aux->ols);
-			*q = (Qid){Qobject, 0, QTDIR};
 		}else if(strcmp(name, "branch") == 0){
 			*q = (Qid){Qbranch, 0, QTDIR};
 			aux->refpath = estrdup(".git/refs/");
@@ -548,7 +551,7 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		break;
 	case Qobject:
 		if(aux->obj){
-			objwalk1(q, aux, name, Qobject);
+			e = objwalk1(q, aux, name, Qobject);
 		}else{
 			if(hparse(&h, name) == -1)
 				return "invalid object name";
@@ -560,10 +563,10 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		}
 		break;
 	case Qcommit:
-		objwalk1(q, aux, name, Qcommit);
+		e = objwalk1(q, aux, name, Qcommit);
 		break;	
 	case Qcommittree:
-		objwalk1(q, aux, name, Qcommittree);
+		e = objwalk1(q, aux, name, Qcommittree);
 		break;
 	case Qcommitparent:
 	case Qcommitmsg:
@@ -575,6 +578,21 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 	default:
 		die("walk: bad qid %Q", *q);
 	}
+	if(aux->npath >= Npath)
+		e = E2long;
+	if(QDIR(q) >= Qmax){
+		print("npath: %d\n", aux->npath);
+		print("walking to %llx\n", q->path);
+		print("walking from %llx\n", fid->qid.path);
+		print("QDIR=%lld\n", QDIR(&fid->qid));
+		if(aux->obj)
+			print("obj=%O\n", aux->obj);
+		abort();
+	}
+
+	aux->path[aux->npath] = *q;
+	aux->opath[aux->npath] = aux->obj;
+	aux->npath++;
 	fid->qid = *q;
 	return e;
 }
@@ -710,16 +728,6 @@ done:
 	respond(r, nil);
 }
 
-static int
-Qfmt(Fmt *fmt)
-{
-	Qid q;
-
-	q = va_arg(fmt->args, Qid);
-	return fmtprint(fmt, "Qid{path=0x%llx(dir:%lld,obj:%lld), vers=%ld, type=%d}",
-	    q.path, QDIR(&q), (q.path >> 8), q.vers, q.type);
-}
-
 Srv gitsrv = {
 	.attach=gitattach,
 	.walk1=gitwalk1,
@@ -747,7 +755,6 @@ threadmain(int argc, char **argv)
 	case 'm':	mtpt = EARGF(usage());	break;
 	}ARGEND;
 
-	fmtinstall('Q', Qfmt);
 	username = getuser();
 	threadpostmountsrv(&gitsrv, nil, mtpt, MCREATE);
 }
