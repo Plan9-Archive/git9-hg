@@ -19,7 +19,7 @@ showconf(char *cfg, char *sect, char *key)
 	int foundsect, nsect, nkey;
 
 	if((f = Bopen(cfg, OREAD)) == nil)
-		sysfatal("could not open %s: %r", cfg);
+		return 0;
 
 	nsect = sect ? strlen(sect) : 0;
 	nkey = strlen(key);
@@ -53,7 +53,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char *file[32], *p, sect[128];
+	char *file[32], *p, *s;
 	int i, j, nfile;
 
 	nfile = 0;
@@ -67,17 +67,16 @@ main(int argc, char **argv)
 	}
 
 	for(i = 0; i < argc; i++){
-		for(j = 0; j < nfile; j++){
-			if((p = strchr(argv[i], '.')) == nil){
-				if(showconf(file[j], nil, argv[i]))
-					break;
-			}else{
-				*p = 0;
-				p++;
-				snprint(sect, sizeof(sect), "[%s]", argv[i]);
-				if(showconf(file[j], sect, p))
-					break;
-			}
+		if((p = strchr(argv[i], '.')) == nil){
+			s = nil;
+			p = argv[i];
+		}else{
+			*p = 0;
+			p++;
+			s = smprint("[%s]", argv[i]);
 		}
+		for(j = 0; j < nfile; j++)
+			if(showconf(file[j], s, p))
+				break;
 	}
 }
