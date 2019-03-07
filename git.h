@@ -120,6 +120,7 @@ extern Hash Zhash;
 #pragma varargck type "H" Hash
 #pragma varargck type "T" Type
 #pragma varargck type "O" Object*
+#pragma varargck type "Q" Qid
 int Hfmt(Fmt*);
 int Tfmt(Fmt*);
 int Ofmt(Fmt*);
@@ -143,4 +144,4 @@ int bdecompress(Buf *, Biobuf *, vlong *);
 int decompress(void **, Biobuf *, vlong *);
 int hassuffix(char *, char *);
 int swapsuffix(char *, int, char *, char *, char *);
-
+void die(char *, ...);

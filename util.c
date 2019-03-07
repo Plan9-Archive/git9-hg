@@ -272,3 +272,14 @@ swapsuffix(char *dst, int dstsz, char *base, char *oldsuf, char *suf)
 	dst[l] = 0;
 	return l;
 }
+
+void
+die(char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprint(2, fmt, ap);
+	abort();
+	va_end(ap);
+}
