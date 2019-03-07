@@ -19,7 +19,7 @@ char *Egreg = "wat";
 
 enum {
 	Qroot,
-		Qbranch,
+	Qbranch,
 	Qcommit,
 	Qcommitmsg,
 	Qcommitparent,
@@ -128,7 +128,7 @@ gtreegen(int i, Dir *d, void *p)
 		return -1;
 	
 	if((o = readobject(aux->obj->ent[i].h)) == nil)
-		sysfatal("could not read object %H", aux->obj->ent[i].h);
+		die("could not read object %H", aux->obj->ent[i].h);
 	d->mode = aux->obj->ent[i].mode;
 	d->name = estrdup9p(aux->obj->ent[i].name);
 	d->qid.path = QPATH(o->id, aux->qdir);
@@ -369,7 +369,7 @@ objread(Req *r, Gitaux *aux)
 		dirread9p(r, gcommitgen, aux);
 		break;
 	default:
-		sysfatal("invalid object type");
+		die("invalid object type");
 	}
 }
 
@@ -422,7 +422,7 @@ objwalk1(Qid *qid, Gitaux *aux, char *name, vlong qdir)
 				continue;
 			w = readobject(o->ent[i].h);
 			if(!w)
-				sysfatal("could not read object %H (%s)", o->ent[i].h, o->ent[i].name);
+				die("could not read object %H (%s)", o->ent[i].h, o->ent[i].name);
 			aux->obj = readobject(o->ent[i].h);
 			qid->type = (w->type == GTree) ? QTDIR : 0;
 			qid->path = QPATH(w->id, qdir);
@@ -496,7 +496,7 @@ readref(char *pathstr)
 
 
 static char*
-gitwalk1(Fid *fid, char *name, Qid *qid)
+gitwalk1(Fid *fid, char *name, Qid *q)
 {
 	char path[128];
 	Gitaux *aux;
@@ -507,26 +507,26 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 
 	e = nil;
 	aux = fid->aux;
-	qid->vers = 0;
+	q->vers = 0;
 
 	if(strcmp(name, "..") == 0){
 		n = aux->npath ? aux->npath - 1 : 0;
-		fid->qid = aux->path[n];
-		*qid = fid->qid;
+		*q = aux->path[n];
+		fid->qid = *q;
 		return nil;
 	}
 	
 	switch(QDIR(&fid->qid)){
 	case Qroot:
 		if(strcmp(name, "object") == 0){
-			*qid = (Qid){Qobject, 0, QTDIR};
 			aux->ols = emalloc(sizeof(*aux->ols));
 			olsinit(aux->ols);
+			*q = (Qid){Qobject, 0, QTDIR};
 		}else if(strcmp(name, "branch") == 0){
-			*qid = (Qid){Qbranch, 0, QTDIR};
+			*q = (Qid){Qbranch, 0, QTDIR};
 			aux->refpath = estrdup(".git/refs/");
 		}else if(strcmp(name, "ctl") == 0){
-			*qid = (Qid){Qctl, 0, 0};
+			*q = (Qid){Qctl, 0, 0};
 		}else{
 			return Eexist;
 		}
@@ -541,29 +541,29 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 		if(d->qid.type == QTDIR)
 			aux->refpath = estrdup(path);
 		else if((aux->obj = readref(path)) != nil)
-			qid->path = QPATH(aux->obj->id, Qcommit);
+			q->path = QPATH(aux->obj->id, Qcommit);
 		else
 			e = Eexist;
 		free(d);
 		break;
 	case Qobject:
 		if(aux->obj){
-			objwalk1(qid, aux, name, Qobject);
+			objwalk1(q, aux, name, Qobject);
 		}else{
 			if(hparse(&h, name) == -1)
 				return "invalid object name";
 			if((aux->obj = readobject(h)) == nil)
 				return "could not read object";
-			qid->path = QPATH(aux->obj->id, Qobject);
-			qid->type = (aux->obj->type == GBlob) ? 0 : QTDIR;
-			qid->vers = 0;
+			q->path = QPATH(aux->obj->id, Qobject);
+			q->type = (aux->obj->type == GBlob) ? 0 : QTDIR;
+			q->vers = 0;
 		}
 		break;
 	case Qcommit:
-		objwalk1(qid, aux, name, Qcommit);
+		objwalk1(q, aux, name, Qcommit);
 		break;	
 	case Qcommittree:
-		objwalk1(qid, aux, name, Qcommittree);
+		objwalk1(q, aux, name, Qcommittree);
 		break;
 	case Qcommitparent:
 	case Qcommitmsg:
@@ -573,9 +573,9 @@ gitwalk1(Fid *fid, char *name, Qid *qid)
 	case Qctl:
 		return Enodir;
 	default:
-		sysfatal("walk: bad qid");
+		die("walk: bad qid %Q", *q);
 	}
-	fid->qid = *qid;
+	fid->qid = *q;
 	return e;
 }
 
@@ -643,7 +643,7 @@ gitread(Req *r)
 		readstr(r, "");
 		break;
 	default:
-		sysfatal("read: bad qid");
+		die("read: bad qid %Q", *q);
 	}
 	respond(r, nil);
 }
@@ -703,11 +703,21 @@ gitstat(Req *r)
 		r->d.mode = 0644;
 		break;
 	default:
-		sysfatal("stat: bad qid");
+		die("stat: bad qid %Q", *q);
 	}
 
 done:
 	respond(r, nil);
+}
+
+static int
+Qfmt(Fmt *fmt)
+{
+	Qid q;
+
+	q = va_arg(fmt->args, Qid);
+	return fmtprint(fmt, "Qid{path=0x%llx(dir:%lld,obj:%lld), vers=%ld, type=%d}",
+	    q.path, QDIR(&q), (q.path >> 8), q.vers, q.type);
 }
 
 Srv gitsrv = {
@@ -737,6 +747,7 @@ threadmain(int argc, char **argv)
 	case 'm':	mtpt = EARGF(usage());	break;
 	}ARGEND;
 
+	fmtinstall('Q', Qfmt);
 	username = getuser();
 	threadpostmountsrv(&gitsrv, nil, mtpt, MCREATE);
 }
