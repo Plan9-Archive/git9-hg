@@ -7,6 +7,7 @@ TARG=\
 	fetch\
 	send\
 	commit\
+	conf\
 
 OFILES=\
 	pack.$O\

@@ -744,6 +744,7 @@ usage(void)
 	print("\t-R:	mount readonly\n");
 	print("\t-d:	debug\n");
 	print("\t-m mp:	mount on mountpoint'mp'\n");
+	exits("usage");
 }
 
 void
