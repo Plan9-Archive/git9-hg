@@ -11,7 +11,7 @@ strip(char *p)
 	return p;
 }
 
-static void
+static int
 showconf(char *cfg, char *sect, char *key)
 {
 	char *ln, *p;
@@ -24,7 +24,6 @@ showconf(char *cfg, char *sect, char *key)
 	nsect = sect ? strlen(sect) : 0;
 	nkey = strlen(key);
 	foundsect = (sect == nil);
-	print("sect:%s\nkey=%s\n", sect, key);
 	while((ln = Brdstr(f, '\n', 1)) != nil){
 		p = strip(ln);
 		if(*p == '[' && sect){
@@ -36,10 +35,11 @@ showconf(char *cfg, char *sect, char *key)
 			p = strip(p + 1);
 			print("%s\n", p);
 			free(ln);
-			return;
+			return 1;
 		}
 		free(ln);
 	}
+	return 0;
 }
 
 void
@@ -53,22 +53,31 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char *file, *p, sect[128];
-	int i;
+	char *file[32], *p, sect[128];
+	int i, j, nfile;
 
-	file = ".git/config";
+	nfile = 0;
 	ARGBEGIN{
-	case 'f':	file=EARGF(usage());
+	case 'f':	file[nfile++]=EARGF(usage());
 	}ARGEND;
+	if(nfile == 0){
+		file[nfile++] = ".git/config";
+		if((p = getenv("home")) != nil)
+			file[nfile++] = smprint("%s/lib/git/config", p);
+	}
 
 	for(i = 0; i < argc; i++){
-		if((p = strchr(argv[i], '.')) == nil)
-			showconf(file, nil, argv[i]);
-		else{
-			*p = 0;
-			p++;
-			snprint(sect, sizeof(sect), "[%s]", argv[i]);
-			showconf(file, sect, p);
+		for(j = 0; j < nfile; j++){
+			if((p = strchr(argv[i], '.')) == nil){
+				if(showconf(file[j], nil, argv[i]))
+					break;
+			}else{
+				*p = 0;
+				p++;
+				snprint(sect, sizeof(sect), "[%s]", argv[i]);
+				if(showconf(file[j], sect, p))
+					break;
+			}
 		}
 	}
 }
