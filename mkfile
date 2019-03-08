@@ -6,7 +6,7 @@ TARG=\
 	show\
 	fetch\
 	send\
-	cgen\
+	save\
 	conf\
 
 OFILES=\
