@@ -42,6 +42,26 @@ showconf(char *cfg, char *sect, char *key)
 	return 0;
 }
 
+static void
+showroot(void)
+{
+	char path[256], buf[256], *p;
+
+	if((getwd(path, sizeof(path))) == nil)
+		sysfatal("could not get wd: %r");
+	while((p = strrchr(path, '/')) != nil){
+		if(snprint(buf, sizeof(buf), "%s/.git", path) >= sizeof(buf))
+			sysfatal("path too long\n");
+		if(access(buf, AEXIST) == 0){
+			print("%s\n", path);
+			return;
+		}
+		*p = '\0';
+	}
+	sysfatal("not a git repository");
+}
+
+
 void
 usage(void)
 {
@@ -54,12 +74,17 @@ void
 main(int argc, char **argv)
 {
 	char *file[32], *p, *s;
-	int i, j, nfile;
+	int i, j, nfile, findroot;
 
 	nfile = 0;
+	findroot = 0;
 	ARGBEGIN{
 	case 'f':	file[nfile++]=EARGF(usage());
+	case 'r':	findroot++;
 	}ARGEND;
+
+	if(findroot)
+		showroot();
 	if(nfile == 0){
 		file[nfile++] = ".git/config";
 		if((p = getenv("home")) != nil)

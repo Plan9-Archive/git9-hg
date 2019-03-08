@@ -6,7 +6,7 @@ TARG=\
 	show\
 	fetch\
 	send\
-	commit\
+	cgen\
 	conf\
 
 OFILES=\

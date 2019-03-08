@@ -179,7 +179,7 @@ resolveref(Hash *h, char *ref)
 		ref += strlen("refs/tags");
 		snprint(buf, sizeof(buf), ".git/refs/tags/%s/%s", clonesrc, ref);
 	}else{
-		reutrn -1;
+		return -1;
 	}
 
 	if((f = open(buf, OREAD)) == -1)
