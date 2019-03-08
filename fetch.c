@@ -13,8 +13,8 @@ enum {
 };
 
 int chatty;
-char *base = "/n/git";
 Object *indexed;
+char *clonesrc;
 
 void
 usage(void)
@@ -167,22 +167,30 @@ dialgit(char *host, char *port, char *path)
 int
 resolveref(Hash *h, char *ref)
 {
-	char buf[256];
-	char s[64];
+	char buf[128];
 	int r, f;
 
 	r = -1;
+
 	if(strstr(ref, "refs/heads") == ref){
 		ref += strlen("refs/heads");
-		snprint(buf, sizeof(buf), "%s/branch/%s/hash", base, ref);
+		snprint(buf, sizeof(buf), ".git/refs/remotes/%s/%s", clonesrc, ref);
 	}else if(strstr(ref, "refs/tags") == ref){
 		ref += strlen("refs/tags");
-		snprint(buf, sizeof(buf), "%s/tag/%s/hash", base, ref);
+		snprint(buf, sizeof(buf), ".git/refs/tags/%s/%s", clonesrc, ref);
+	}else{
+		reutrn -1;
 	}
+
 	if((f = open(buf, OREAD)) == -1)
 		return -1;
-	if(readn(f, s, sizeof(s)) >= 40)
-		r = hparse(h, s);
+	if(readn(f, buf, sizeof(buf)) >= 40)
+		r = hparse(h, buf);
+	close(f);
+
+	if(r == -1 && strstr(buf, "ref: ") == ref)
+		return resolveref(h, buf + strlen("ref: "));
+	
 	return r;
 }
 
@@ -290,8 +298,9 @@ main(int argc, char **argv)
 	int fd;
 
 	ARGBEGIN{
-	case '?':	usage();	break;
-	case 'd':	chatty++;	break;
+	case '?':	usage();			break;
+	case 'd':	chatty++;			break;
+	case 's':	clonesrc=EARGF(usage());	break;
 	}ARGEND;
 
 	gitinit();
