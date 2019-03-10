@@ -1,23 +1,25 @@
 #!/bin/rc -e
 
-rfork e
+rfork en
 
 base=/n/git/object/
 branch=$1
 if(~ $1 '')
 	branch='master'
-commits=($branch)
-if(test -e /n/git/branch/heads/$1)
-	commits=`{cat /n/git/branch/heads/$1/hash}
-if not if(test -e /n/git/branch/$1)
-	commits=`{cat /n/git/branch/$1/hash}
-if not if(test -e /n/git/object/$1/hash)
-	commits=`{cat /n/git/object/$1/hash}
-if not{
-	[2=1] echo 'unknown commit '$1
-	exit 'unknown commit '$1
-}
+if(! test -e /n/git/ctl)
+	git/fs
 
+commits=($branch)
+if(test -e /n/git/branch/heads/$branch)
+	commits=`{cat /n/git/branch/heads/$branch/hash}
+if not if(test -e /n/git/branch/$branch)
+	commits=`{cat /n/git/branch/$branch/hash}
+if not if(test -e /n/git/object/$branch/hash)
+	commits=`{cat /n/git/object/$branch/hash}
+if not{
+	echo 'unknown commit '$branch >[2=1]
+	exit 'unknown commit '$branch
+}
 
 while(! ~$#commits 0){
 	c=$commits(1)

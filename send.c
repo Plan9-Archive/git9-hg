@@ -16,7 +16,6 @@ enum {
 int chatty;
 int pushall;
 char *curbranch = "master";
-char *base = "/n/git";
 Object *indexed;
 
 void
@@ -174,18 +173,17 @@ resolveref(Hash *h, char *ref)
 	char s[64];
 	int r, f;
 
-	r = -1;
-	if(strstr(ref, "refs/heads") == ref){
-		ref += strlen("refs/heads");
-		snprint(buf, sizeof(buf), "%s/branch/%s/hash", base, ref);
-	}else if(strstr(ref, "refs/tags") == ref){
-		ref += strlen("refs/tags");
-		snprint(buf, sizeof(buf), "%s/tag/%s/hash", base, ref);
-	}
+	if((r = hparse(h, ref)) != -1)
+		return r;
+	snprint(buf, sizeof(buf), ".git/%s", ref);
 	if((f = open(buf, OREAD)) == -1)
 		return -1;
 	if(readall(f, s, sizeof(s)) >= 40)
 		r = hparse(h, s);
+	close(f);
+
+	if(r == -1 && strstr(buf, "ref: ") == buf)
+		return resolveref(h, buf + strlen("ref: "));
 	return r;
 }
 

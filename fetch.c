@@ -170,8 +170,9 @@ resolveref(Hash *h, char *ref)
 	char buf[128];
 	int r, f;
 
-	r = -1;
-
+	if((r = hparse(h, ref)) != -1)
+		return r;
+	/* Slightly special handling: translate remote refs to local ones. */
 	if(strstr(ref, "refs/heads") == ref){
 		ref += strlen("refs/heads");
 		snprint(buf, sizeof(buf), ".git/refs/remotes/%s/%s", clonesrc, ref);
@@ -188,7 +189,7 @@ resolveref(Hash *h, char *ref)
 		r = hparse(h, buf);
 	close(f);
 
-	if(r == -1 && strstr(buf, "ref: ") == ref)
+	if(r == -1 && strstr(buf, "ref: ") == buf)
 		return resolveref(h, buf + strlen("ref: "));
 	
 	return r;
