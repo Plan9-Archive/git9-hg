@@ -63,7 +63,7 @@ writeobj(Hash *h, char *hdr, int nhdr, char *dat, int ndat)
 	snprint(o, sizeof(o), ".git/objects/%c%c", s[0], s[1]);
 	create(o, OREAD, DMDIR | 0755);
 	snprint(o, sizeof(o), ".git/objects/%c%c/%s", s[0], s[1], s + 2);
-	if(access(o, AREAD) == -1){
+	if(readobject(*h) == nil){
 		if((f = Bopen(o, OWRITE)) == nil)
 			sysfatal("could not open %s: %r", o);
 		if(deflatezlib(f, bwrite, &b, objbytes, 9, 0) == -1)
@@ -212,7 +212,7 @@ main(int argc, char **argv)
 		if(nparents >= Maxparents)
 			sysfatal("too many parents");
 		if(resolveref(&parents[nparents++], EARGF(usage())) == -1)
-			sysfatal("invalid parentL: %r");
+			sysfatal("invalid parent: %r");
 		break;
 	}ARGEND;
 

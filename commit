@@ -1,4 +1,4 @@
-#!/bin/rc -x
+#!/bin/rc -e
 
 rfork n
 
@@ -39,7 +39,7 @@ grep -v '^#' < $msgfile.tmp > $msgfile
 name=`{git/conf user.name}
 email=`{git/conf user.email}
 msg=`{cat /tmp/newcommit/msg}
-#echo git/save -n $name -e $email  -m $msg -d $datadir -p $branch
-hash=`{git/save -n $"name -e $"email  -m $"msg -d $"datadir -p $branch}
+echo git/save -n $"name -e $email  -m $msg -d $datadir -p $branch
+#hash=`{git/save -n $"name -e $"email  -m $"msg -d $"datadir -p $branch}
 
 echo $hash > .git/refs/$branch
