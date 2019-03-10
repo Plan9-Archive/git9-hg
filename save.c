@@ -10,6 +10,9 @@ struct Objbuf {
 	char *dat;
 	int ndat;
 };
+enum {
+	Maxparents = 16,
+};
 
 static int
 bwrite(void *p, void *buf, int nbuf)
@@ -26,7 +29,6 @@ objbytes(void *p, void *buf, int nbuf)
 
 	b = p;
 	n = 0;
-	print("hdr: off: %d, nhdr: %d\n", b->off, b->nhdr);
 	if(b->off < b->nhdr){
 		r = b->nhdr - b->off;
 		memcpy(buf, b->hdr, (nbuf < r) ? nbuf : r);
@@ -42,7 +44,6 @@ objbytes(void *p, void *buf, int nbuf)
 		b->off += r;
 		n += r;
 	}
-	print("return: %d\n", n);
 	return n;
 }
 
@@ -62,7 +63,6 @@ writeobj(Hash *h, char *hdr, int nhdr, char *dat, int ndat)
 	snprint(o, sizeof(o), ".git/objects/%c%c", s[0], s[1]);
 	create(o, OREAD, DMDIR | 0755);
 	snprint(o, sizeof(o), ".git/objects/%c%c/%s", s[0], s[1], s + 2);
-	print("commit has object %s\n", o);
 	if(access(o, AREAD) == -1){
 		if((f = Bopen(o, OWRITE)) == nil)
 			sysfatal("could not open %s: %r", o);
@@ -90,7 +90,6 @@ blobify(char *path, vlong size, Hash *bh)
 	d = emalloc(size);
 	if(readall(f, d, size) != size)
 		sysfatal("could not read blob %s: %r", path);
-	print("writing blob object");
 	writeobj(bh, h, nh, d, size);
 	free(d);
 }
@@ -111,7 +110,6 @@ treeify(char *path, Hash *th)
 	t = nil;
 	nt = 0;
 	for(i = 0; i < nd; i++){
-		print("blobifying %s (dir: %d)\n", d[i].name, d[i].qid.type & QTDIR);
 		if((snprint(ep, sizeof(ep), "%s/%s", path, d[i].name)) >= sizeof(ep))
 			sysfatal("overlong path");
 		if(d[i].qid.type & QTDIR){
@@ -138,57 +136,103 @@ treeify(char *path, Hash *th)
 
 
 void
-mkcommit(Hash *c, char *msg, char *author, Hash *parents, int nparents, Hash tree)
+mkcommit(Hash *c, char *msg, char *name, char *email, Hash *parents, int nparents, Hash tree)
 {
 	char *s, h[64];
-	int ns, nh;
+	int ns, nh, i;
+	Fmt f;
 
-	s = smprint(
-		"tree %H\n"
-		"parent %H\n"
-		"author %s <%s>\n"
-		"\n"
-		"%s",
-		tree, parents[0], name, email, msg);
-	USED(nparents);
+	fmtstrinit(&f);
+	fmtprint(&f, "tree %H\n", tree);
+	for(i = 0; i < nparents; i++)
+		fmtprint(&f, "parent %H\n", parents[i]);
+	fmtprint(&f, "author %s <%s> %lld 0000\n", name, email, (vlong)time(nil));
+	fmtprint(&f, "\n");
+	fmtprint(&f, "%s", msg);
+	s = fmtstrflush(&f);
+
 	ns = strlen(s);
 	nh = snprint(h, sizeof(h), "%T %d", GCommit, ns) + 1;
 	writeobj(c, h, nh, s, ns);
+	free(s);
 }
 
 void
 usage(void)
 {
-	print("usage: git/commit -a author -m message dir");
+	fprint(2, "usage: git/commit -n name -e email -m message -d dir");
 	exits("usage");
+}
+
+int
+resolveref(Hash *h, char *ref)
+{
+	char buf[256];
+	char s[64];
+	int r, f;
+
+	if((r = hparse(h, ref)) != -1)
+		return r;
+
+	snprint(buf, sizeof(buf), ".git/%s", ref);
+	if((f = open(buf, OREAD)) == -1){
+		snprint(buf, sizeof(buf), ".git/refs/%s", ref);
+		if((f = open(buf, OREAD)) == -1)
+			return -1;
+	}
+	if(readall(f, s, sizeof(s)) >= 40)
+		r = hparse(h, s);
+	close(f);
+
+	if(r == -1 && strstr(buf, "ref: ") == buf)
+		return resolveref(h, buf + strlen("ref: "));
+	return r;
 }
 
 void
 main(int argc, char **argv)
 {
-	Hash c, t;
-	char *msg, *name, *email;
-	int r;
+	Hash c, t, parents[Maxparents];
+	char *msg, *name, *email, *dir;
+	int r, nparents;
 
 
 	msg = nil;
-	author = nil;
+	name = nil;
+	email = nil;
+	dir = nil;
+	nparents = 0;
+	gitinit();
 	ARGBEGIN{
 	case 'm':	msg = EARGF(usage());	break;
 	case 'n':	name = EARGF(usage());	break;
 	case 'e':	email = EARGF(usage());	break;
+	case 'd':	dir = EARGF(usage());	break;
+	case 'p':
+		if(nparents >= Maxparents)
+			sysfatal("too many parents");
+		if(resolveref(&parents[nparents++], EARGF(usage())) == -1)
+			sysfatal("invalid parentL: %r");
+		break;
 	}ARGEND;
-	if(!msg || !author)
+
+	if(!msg) sysfatal("missing message");
+	if(!name) sysfatal("missing name");
+	if(!email) sysfatal("missing email");
+	if(!dir) sysfatal("missing dir");
+	if(nparents == 0) sysfatal("need at least one parent");
+
+	if(!msg || !name)
 		usage();
 
 	gitinit();
 	if(access(".git", AEXIST) != 0)
 		sysfatal("could not find git repo: %r\n");
-	r = treeify("/tmp/newcommit", &t);
+	r = treeify(dir, &t);
 	if(r == -1)
 		sysfatal("could not commit: %r\n");
 	if(r == 0)
-		sysfatal("empty commit: aborting\n");
-	mkcommit(&c, msg, name, email, &Zhash, 1, t);
-	print("committed %H\n", c);
+		sysfatal("empty commit: aborting");
+	mkcommit(&c, msg, name, email, parents, nparents, t);
+	print("%H\n", c);
 }

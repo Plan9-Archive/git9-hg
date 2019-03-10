@@ -1,10 +1,23 @@
 #!/bin/rc -x
 
-if (! cd `{git/conf -r})
+rfork n
+
+if(! cd `{git/conf -r})
 	exit 'not in git repository'
 
+if(! test -e /n/git/ctl)
+	git/fs
+
 branch=`{awk '$1=="branch"{print $2}' < /n/git/ctl}
+echo $branch
 dir=/n/git/branch/$branch/tree
+if(! test -e $dir)
+	dir=/n/git/object/$branch/tree
+if(! test -e $dir){
+	echo 'invalid branch' $branch >[2=1]
+	exits 'badbranch'
+}
+
 files = `{du -a $dir | awk '{print $2}' | sed 's@'$dir'/*@@'}
 datadir=/tmp/newcommit/data
 msgfile=/tmp/newcommit/msg
@@ -15,16 +28,18 @@ for(f in $files){
 	cp $f $datadir/$f
 }
 
-sam $msgfile
-if(! test -s $msgfile){
+sam $msgfile.tmp
+if(! test -s $msgfile.tmp){
 	echo 'cancelling commit: empty message' >[1=2]
 	exits 'nocommit'
 }
 
+grep -v '^#' < $msgfile.tmp > $msgfile
+
 name=`{git/conf user.name}
 email=`{git/conf user.email}
 msg=`{cat /tmp/newcommit/msg}
-echo git/save -n $name -e $email  -m $msg -d $datadir
-#hash=`{git/save -n $name -e $email  -m $msg -d $datadir}
+#echo git/save -n $name -e $email  -m $msg -d $datadir -p $branch
+hash=`{git/save -n $"name -e $"email  -m $"msg -d $"datadir -p $branch}
 
-#echo $hash > .git/refs/$branch
+echo $hash > .git/refs/$branch

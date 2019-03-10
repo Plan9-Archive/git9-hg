@@ -134,7 +134,7 @@ gitinit(void)
 	fmtinstall('Q', Qfmt);
 	inflateinit();
 	deflateinit();
-	authorpat = regcomp("[\t ]*(.*)[\t ]+([0-9]+)[\t ]+([\\-+][0-9]+)");
+	authorpat = regcomp("[\t ]*(.*)[\t ]+([0-9]+)[\t ]+([\\-+]?[0-9]+)");
 	objcache = avlcreate(objcmp);
 }
 
