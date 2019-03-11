@@ -113,7 +113,7 @@ Qfmt(Fmt *fmt)
 	Qid q;
 
 	q = va_arg(fmt->args, Qid);
-	return fmtprint(fmt, "Qid{path=0x%llx(dir:%lld,obj:%lld), vers=%ld, type=%d}",
+	return fmtprint(fmt, "Qid{path=0x%llx(dir:%d,obj:%lld), vers=%ld, type=%d}",
 	    q.path, QDIR(&q), (q.path >> 8), q.vers, q.type);
 }
 
