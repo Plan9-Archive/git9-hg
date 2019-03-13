@@ -6,7 +6,6 @@
 
 #include "git.h"
 
-char *mtpt = "/n/git";
 typedef struct Ols Ols;
 
 char *Eperm = "permission denied";
@@ -29,6 +28,7 @@ enum {
 	Qobject,
 	Qctl,
 	Qmax,
+	Internal=1<<7,
 };
 
 enum {
@@ -70,6 +70,8 @@ char *qroot[] = {
 };
 
 char *username;
+char *mtpt = "/n/git";
+char **branches = nil;
 
 static int
 rootgen(int i, Dir *d, void *)
@@ -495,7 +497,22 @@ readref(char *pathstr)
 	return readobject(h);
 }
 
+static vlong
+walkbranch(Gitaux *aux, char *path)
+{
+	int i;
 
+	for(i = 0; branches[i]; i++)
+		if(strcmp(path, branches[i]) == 0)
+			goto found;
+	branches = realloc(branches, sizeof(char *)*(i + 2));
+	branches[i] = estrdup(path);
+	branches[i + 1] = nil;
+
+found:
+	aux->refpath = estrdup(branches[i]);
+	return QPATH(i, Qbranch|Internal);
+}
 
 static char*
 gitwalk1(Fid *fid, char *name, Qid *q)
@@ -532,18 +549,18 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		}else if(strcmp(name, "ctl") == 0){
 			*q = (Qid){Qctl, 0, 0};
 		}else{
-			return Eexist;
+			e = Eexist;
 		}
 		break;
 	case Qbranch:
 		if(strcmp(aux->refpath, ".git/refs/heads") == 0 && strcmp(name, "HEAD") == 0)
 			snprint(path, sizeof(path), ".git/HEAD");
 		else if(snprint(path, sizeof(path), "%s/%s", aux->refpath, name) >= sizeof(path))
-			return E2long;
+			e = E2long;
 		if((d = dirstat(path)) == nil)
-			return Eexist;
+			e = Eexist;
 		if(d->qid.type == QTDIR)
-			aux->refpath = estrdup(path);
+			q->path = walkbranch(aux, path);
 		else if((aux->obj = readref(path)) != nil)
 			q->path = QPATH(aux->obj->id, Qcommit);
 		else
@@ -581,11 +598,11 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 	}
 	if(aux->npath >= Npath)
 		e = E2long;
-	if(QDIR(q) >= Qmax){
+	if(!e && QDIR(q) >= Qmax){
 		print("npath: %d\n", aux->npath);
-		print("walking to %llx\n", q->path);
+		print("walking to %llx (name: %s)\n", q->path, name);
 		print("walking from %llx\n", fid->qid.path);
-		print("QDIR=%lld\n", QDIR(&fid->qid));
+		print("QDIR=%d\n", QDIR(&fid->qid));
 		if(aux->obj)
 			print("obj=%O\n", aux->obj);
 		abort();
@@ -777,5 +794,7 @@ threadmain(int argc, char **argv)
 	}ARGEND;
 
 	username = getuser();
+	branches = emalloc(sizeof(char*));
+	branches[0] = nil;
 	threadpostmountsrv(&gitsrv, nil, mtpt, MCREATE);
 }
