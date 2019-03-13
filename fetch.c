@@ -155,7 +155,11 @@ dialgit(char *host, char *port, char *path)
 	fd = dial(ds, nil, nil, nil);
 	if(fd == -1)
 		return -1;
-	l = snprint(cmd, sizeof(cmd), "git-upload-pack %s", path);
+	l = 0;
+	l += snprint(cmd, sizeof(cmd), "git-upload-pack %s", path) + 1;
+	l += snprint(cmd + l, sizeof(cmd) - l, "host=%s", host);
+	print("pktline=");
+	write(1, cmd, l + 1);
 	if(writepkt(fd, cmd, l + 1) == -1){
 		print("failed to write message\n");
 		close(fd);

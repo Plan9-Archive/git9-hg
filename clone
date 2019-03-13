@@ -31,6 +31,7 @@ dircp /lib/git/template .git
 echo '[remote "origin"]' 				>> .git/config
 echo '	url='$remote					>> .git/config
 echo '	fetch=+refs/heads/*:refs/remotes/origin/*'	>> .git/config
+echo git/fetch $remote
 git/fetch $remote | awk '
 	/^remote/{
 		if($2=="HEAD"){
