@@ -75,7 +75,7 @@ writeobj(Hash *h, char *hdr, int nhdr, char *dat, int ndat)
 int
 gitmode(int m)
 {
-	return m & 0x777;
+	return m & 0777 | ((m & DMDIR) ? 0040000 : 0);
 }
 
 void
