@@ -557,11 +557,10 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 			snprint(path, sizeof(path), ".git/HEAD");
 		else if(snprint(path, sizeof(path), "%s/%s", aux->refpath, name) >= sizeof(path))
 			e = E2long;
-		if((d = dirstat(path)) == nil)
-			e = Eexist;
-		if(d->qid.type == QTDIR)
+		d = dirstat(path);
+		if(d && d->qid.type == QTDIR)
 			q->path = walkbranch(aux, path);
-		else if((aux->obj = readref(path)) != nil)
+		else if(d && (aux->obj = readref(path)) != nil)
 			q->path = QPATH(aux->obj->id, Qcommit);
 		else
 			e = Eexist;
