@@ -529,6 +529,7 @@ parsetree(Object *o)
 		o->ent = realloc(o->ent, ++o->nent * sizeof(Dirent));
 		t = &o->ent[o->nent - 1];
 		m = strtol(buf, nil, 8);
+		/* FIXME: symlinks and other BS */
 		t->mode = m & 0777 | ((m & 0040000) ? DMDIR : 0);
 		t->name = p;
 		nn = strlen(p) + 1;
