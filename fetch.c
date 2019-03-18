@@ -221,12 +221,14 @@ rename(char *pack, char *idx, Hash h)
 int
 fetchpack(int fd, char *packtmp)
 {
+	DigestState *st;
+	uchar tail[20];
 	char buf[65536];
 	char idxtmp[256];
 	char *sp[3];
 	Hash h, have[64];
 	Hash want[64];
-	int i, n, nref, req, pfd;
+	int i, n, nref, req, pfd, ntail;
 
 	for(i = 0; i < nelem(want); i++){
 		n = readpkt(fd, buf, sizeof(buf));
@@ -276,19 +278,39 @@ fetchpack(int fd, char *packtmp)
 	if(pfd == -1)
 		sysfatal("could not open pack %s", packtmp);
 	print("fetching...\n");
+	st = nil;
+	ntail = 0;
+	int dbgfd;
+
+	dbgfd = create("debug", OWRITE|OTRUNC, 0644);
 	while(1){
-		n = read(fd, buf, sizeof buf);
+		n = readn(fd, buf, sizeof buf);
+		if(n > 20){
+			st = sha1(tail, ntail, nil, st);
+			st = sha1((uchar*)buf, n - 20, nil, st);
+			write(dbgfd, tail, ntail);
+			write(dbgfd, buf, n - 20);
+			memcpy(tail, buf + n - 20, 20);
+			ntail = 20;
+		}else{
+			st = sha1(tail, n, nil, st);
+			write(dbgfd, tail, n);
+			break;
+		}
 		if(n == 0)
 			break;
 		if(n == -1)
 			sysfatal("could not fetch packfile: %r");
 		writeall(pfd, buf, n);
+
 	}
+	sha1(nil, 0, h.h, st);
+	print("hash: %H\n", h);
 	close(pfd);
 	n = strlen(packtmp) - strlen(".tmp");
 	memcpy(idxtmp, packtmp, n);
 	memcpy(idxtmp + n, ".idx", strlen(".idx") + 1);
-	if(indexpack(packtmp, idxtmp, &h) == -1)
+	if(indexpack(packtmp, idxtmp, h) == -1)
 		sysfatal("could not index fetched pack: %r");
 	if(rename(packtmp, idxtmp, h) == -1)
 		sysfatal("could not rename indexed pack: %r");
