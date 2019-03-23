@@ -53,9 +53,9 @@ writepkt(int fd, char *buf, int nbuf)
 	char len[5];
 
 	snprint(len, sizeof(len), "%04x", nbuf + 4);
-	if(writeall(fd, len, 4) != 4)
+	if(write(fd, len, 4) != 4)
 		return -1;
-	if(writeall(fd, buf, nbuf) != nbuf)
+	if(write(fd, buf, nbuf) != nbuf)
 		return -1;
 	return 0;
 }
@@ -63,7 +63,7 @@ writepkt(int fd, char *buf, int nbuf)
 int
 flushpkt(int fd)
 {
-	return writeall(fd, "0000", 4);
+	return write(fd, "0000", 4);
 }
 
 static void
@@ -301,7 +301,7 @@ fetchpack(int fd, char *packtmp)
 			break;
 		if(n == -1)
 			sysfatal("could not fetch packfile: %r");
-		writeall(pfd, buf, n);
+		write(pfd, buf, n);
 
 	}
 	sha1(nil, 0, h.h, st);

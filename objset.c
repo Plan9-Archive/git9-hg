@@ -14,16 +14,23 @@ osinit(Objset *s)
 }
 
 void
+osfree(Objset *s)
+{
+	free(s->obj);
+	free(s->has);
+}
+
+void
 osadd(Objset *s, Object *o)
 {
 	u32int probe;
 
 
 	probe = GETBE32(o->hash.h) % s->sz;
-	while(s->has[probe] && !hasheq(&s->obj[probe], &o->hash))
+	while(s->has[probe] && !hasheq(&s->obj[probe]->hash, &o->hash))
 		probe++;
 	s->has[probe] = 1;
-	s->obj[probe] = o->hash;
+	s->obj[probe] = o;
 	s->nobj++;
 	if(s->sz < 2*s->nobj){
 		s->obj = emalloc(s->sz * sizeof(Hash));
@@ -37,7 +44,7 @@ oshas(Objset *s, Object *o)
 	u32int probe;
 
 	for(probe = GETBE32(o->hash.h) % s->sz; s->has[probe]; probe++)
-		if(hasheq(&s->obj[probe], &o->hash))
+		if(hasheq(&s->obj[probe]->hash, &o->hash))
 			return 1; 
 	return 0;
 }

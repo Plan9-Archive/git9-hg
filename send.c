@@ -4,6 +4,16 @@
 
 #include "git.h"
 
+typedef struct Objq Objq;
+typedef struct Buf Buf;
+
+struct Buf {
+	int off;
+	int sz;
+	uchar *data;
+	DigestState *st;
+};
+
 enum {
 	Nproto	= 16,
 	Nport	= 16,
@@ -13,10 +23,14 @@ enum {
 	Nbranch	= 32,
 };
 
+struct Objq {
+	Objq *next;
+	Object *obj;
+};
+
 int chatty;
 int pushall;
 char *curbranch = "master";
-Object *indexed;
 
 void
 usage(void)
@@ -25,6 +39,7 @@ usage(void)
 	exits("usage");
 }
 
+
 static int
 readpkt(int fd, char *buf, int nbuf)
 {
@@ -32,7 +47,7 @@ readpkt(int fd, char *buf, int nbuf)
 	char *e;
 	int n;
 
-	if(readall(fd, len, 4) == -1)
+	if(readn(fd, len, 4) == -1)
 		return -1;
 	len[4] = 0;
 	n = strtol(len, &e, 16);
@@ -43,10 +58,19 @@ readpkt(int fd, char *buf, int nbuf)
 	n  -= 4;
 	if(n >= nbuf)
 		sysfatal("buffer too small");
-	if(readall(fd, buf, n) != n)
+	if(readn(fd, buf, n) != n)
 		return -1;
 	buf[n] = 0;
 	return n;
+}
+
+static int
+hwrite(int fd, void *buf, int nbuf, DigestState **st)
+{
+	if(write(fd, buf, nbuf) != nbuf)
+		return -1;
+	*st = sha1(buf, nbuf, nil, *st);
+	return nbuf;
 }
 
 int
@@ -55,9 +79,9 @@ writepkt(int fd, char *buf, int nbuf)
 	char len[5];
 
 	snprint(len, sizeof(len), "%04x", nbuf + 4);
-	if(writeall(fd, len, 4) != 4)
+	if(write(fd, len, 4) != 4)
 		return -1;
-	if(writeall(fd, buf, nbuf) != nbuf)
+	if(write(fd, buf, nbuf) != nbuf)
 		return -1;
 	return 0;
 }
@@ -65,7 +89,7 @@ writepkt(int fd, char *buf, int nbuf)
 int
 flushpkt(int fd)
 {
-	return writeall(fd, "0000", 4);
+	return write(fd, "0000", 4);
 }
 
 static void
@@ -178,7 +202,7 @@ resolveref(Hash *h, char *ref)
 	snprint(buf, sizeof(buf), ".git/%s", ref);
 	if((f = open(buf, OREAD)) == -1)
 		return -1;
-	if(readall(f, s, sizeof(s)) >= 40)
+	if(readn(f, s, sizeof(s)) >= 40)
 		r = hparse(h, s);
 	close(f);
 
@@ -187,18 +211,160 @@ resolveref(Hash *h, char *ref)
 	return r;
 }
 
-int
-addknown(Hash h)
+void
+pack(Objset *send, Object *o)
 {
-	USED(h);
-	return 0;
+	Object *s;
+	int i;
+
+	osadd(send, o);
+	switch(o->type){
+	case GCommit:
+		if((s = readobject(o->tree)) == nil)
+			sysfatal("could not read tree for commit %H", o->hash);
+		pack(send, s);
+		break;
+	case GTree:
+		for(i = 0; i < o->nent; i++){
+			if ((s = readobject(o->ent[i].h)) == nil)
+				sysfatal("could not read tree for commit %H", o->hash);
+			pack(send, s);
+		}
+		break;
+	default:
+		break;
+	}
 }
 
 int
-writepack(int fd, Hash *theirs, int ntheirs, Hash *send, int nsend)
+compread(void *p, void *dst, int n)
 {
-	USED(fd); USED(theirs); USED(ntheirs); USED(send); USED(nsend);
-	return -1;
+	Buf *b;
+
+	b = p;
+	if(n > b->sz - b->off)
+		n = b->sz - b->off;
+	memcpy(dst, b->data + b->off, n);
+	b->st = sha1(b->data, n, nil, b->st);
+	b->off += n;
+	return n;
+}
+
+int
+compwrite(void *p, void *buf, int n)
+{
+	return write(*(int*)p, buf, n);
+}
+
+int
+compress(int fd, void *buf, int sz, DigestState **st)
+{
+	int r;
+	Buf b ={
+		.off=0,
+		.data=buf,
+		.sz=sz,
+		.st=*st
+	};
+
+	r = deflatezlib(&fd, compwrite, &b, compread, 6, 0);
+	*st = b.st;
+	return r;
+}
+
+int
+writeobject(int fd, Object *o, DigestState **st)
+{
+	char hdr[8];
+	uvlong sz;
+	int i;
+
+	sz = o->size;
+	hdr[0] = o->type << 4;
+	if(sz > (1 << 4))
+		hdr[0] |= 0x80;
+
+	hdr[0] = sz & 0xf;
+	sz >>= 4;
+	for(i = 1; i < sizeof(hdr); i++){
+		hdr[i] = sz & 0x7f;
+		if(sz > 0x7f)
+			hdr[i] |= 0x80;
+	}
+
+	if(write(fd, hdr, i) != i)
+		return -1;
+	if(compress(fd, o->data, o->size, st) == -1)
+		return -1;
+	return 0;	
+}
+
+int
+writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
+{
+	Objset send, skip;
+	Object *o, *p;
+	Objq *q, *n, *e;
+	DigestState *st;
+	char buf[4];
+	Hash h;
+	int i;
+
+	osinit(&send);
+	osinit(&skip);
+	for(i = 0; i < nremote; i++){
+		if((o = readobject(remote[i])) == nil)
+			sysfatal("could not read %H", remote[i]);
+		osadd(&skip, o);
+	}
+
+	q = nil;
+	e = nil;
+	for(i = 0; i < nlocal; i++){
+		if((o = readobject(local[i])) == nil)
+			sysfatal("could not read object %H", local[i]);
+
+		n = emalloc(sizeof(Objq));
+		n->obj = o;
+		if(!q){
+			q = n;
+			e = n;
+		}else{
+			e->next = n;
+		}
+	}
+
+	for(; q; q = n){
+		o = q->obj;
+		n = q->next;
+
+		pack(&send, o);
+		for(i = 0; i < o->nparent; i++){
+			if((p = readobject(o->parent[i])) == nil)
+				sysfatal("could not read parent of %H", o->hash);
+			n = emalloc(sizeof(Objq));
+			n->obj = p;
+			e->next = n;
+			e = n;			
+		}
+		free(q);
+	}
+
+	st = nil;
+	if(hwrite(fd, "PACK\0\0\0\02", 8, &st) == -1)
+		return -1;
+	if(hwrite(fd, buf, 4, &st) == -1)
+		return -1;
+	for(i = 0; i < send.sz; i++){
+		if(!send.has[i])
+			continue;
+		if(writeobject(fd, send.obj[i], &st) == -1)
+			return -1;
+	}
+	sha1(nil, 0, h.h, st);
+	if(write(fd, h.h, sizeof(h.h)) == -1)
+		return -1;
+	return 0;
 }
 
 int
@@ -271,8 +437,6 @@ main(int argc, char **argv)
 	if(argc != 1 && argc != 2)
 		usage();
 	fd = -1;
-	if(access("/n/git/ctl", AEXIST) == -1)
-		sysfatal("expect /n/git to be mounted");
 	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
 		sysfatal("bad uri %s", argv0);
 	if(argc == 2)
