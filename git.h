@@ -18,12 +18,6 @@ enum {
 	Hashsz=20,
 };
 
-struct Buf {
-	int len;
-	int sz;
-	char *data;
-};
-
 typedef enum Type {
 	GNone	= 0,
 	GCommit	= 1,
@@ -77,7 +71,7 @@ struct Object {
 };
 
 struct Objset {
-	Hash	*obj;
+	Object	**obj;
 	char	*has;
 	int	nobj;
 	int	sz;
@@ -144,16 +138,16 @@ void parseobject(Object *);
 int indexpack(char *, char *, Hash);
 int hasheq(Hash *, Hash *);
 
+/* object sets */
+void osinit(Objset *);
+void osadd(Objset *, Object *);
+int oshas(Objset *, Object *);
+
 /* util functions */
 void *emalloc(ulong);
 char *estrdup(char *);
-int readall(int, char *, int);
-int writeall(int, char *, int);
 int slurpdir(char *, Dir **);
 int hparse(Hash *, char *);
-int compress(Biobuf *, void *, int);
-int bdecompress(Buf *, Biobuf *, vlong *);
-int decompress(void **, Biobuf *, vlong *);
 int hassuffix(char *, char *);
 int swapsuffix(char *, int, char *, char *, char *);
 void die(char *, ...);

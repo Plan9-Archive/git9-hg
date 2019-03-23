@@ -2,10 +2,70 @@
 #include <libc.h>
 #include "git.h"
 
+typedef struct Buf Buf;
+
+struct Buf {
+	int len;
+	int sz;
+	char *data;
+};
+
 static int readpacked(Biobuf *, Object *);
 
 Avltree *objcache;
 int nobjcache;
+
+int
+bappend(void *p, void *src, int len)
+{
+	Buf *b = p;
+	char *n;
+
+	while(b->len + len >= b->sz){
+		b->sz = b->sz*2 + 64;
+		n = realloc(b->data, b->sz);
+		if(n == nil)
+			return -1;
+		b->data = n;
+	}
+	memmove(b->data + b->len, src, len);
+	b->len += len;
+	return len;
+}
+
+int
+breadc(void *p)
+{
+	return Bgetc(p);
+}
+
+int
+bdecompress(Buf *d, Biobuf *b, vlong *csz)
+{
+	vlong o;
+
+	o = Boffset(b);
+	if(inflatezlib(d, bappend, b, breadc) == -1){
+		free(d->data);
+		return -1;
+	}
+	if (csz)
+		*csz = Boffset(b) - o;
+	return d->len;
+}
+
+int
+decompress(void **p, Biobuf *b, vlong *csz)
+{
+	Buf d = {.len=0, .data=nil, .sz=0};
+
+	if(bdecompress(&d, b, csz) == -1){
+		free(d.data);
+		return -1;
+	}
+	*p = d.data;
+	return d.len;
+}
 
 static int
 preadbe32(Biobuf *b, int *v, vlong off)
@@ -218,7 +278,6 @@ readpacked(Biobuf *f, Object *o)
 	t = (c >> 4) & 0x7;
 	if(!t)
 		print("unknown type for byte %x\n", c);
-	/* For now, disallow packed objects larger than 1g */
 	while(c & 0x80){
 		if((c = Bgetc(f)) == -1)
 			return -1;
@@ -637,7 +696,7 @@ objcmp(void *pa, void *pb)
 	return memcmp(a->hash.h, b->hash.h, sizeof(a->hash.h));
 }
 
-int
+static int
 hwrite(Biobuf *b, void *buf, int len, DigestState **st)
 {
 	*st = sha1(buf, len, nil, *st);
