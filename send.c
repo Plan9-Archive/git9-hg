@@ -333,7 +333,6 @@ writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
 	osinit(&send);
 	osinit(&skip);
 	for(i = 0; i < nremote; i++){
-		print("boundary object: %H\n", remote[i]);
 		if((o = readobject(remote[i])) == nil)
 			sysfatal("could not read %H", remote[i]);
 		pack(&skip, &skip, o);
