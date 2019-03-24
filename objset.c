@@ -26,8 +26,14 @@ osadd(Objset *s, Object *o)
 	int i, sz;
 
 	probe = GETBE32(o->hash.h) % s->sz;
-	while(s->obj[probe] && !hasheq(&s->obj[probe]->hash, &o->hash))
-		probe++;
+	while(s->obj[probe]){
+		if(hasheq(&s->obj[probe]->hash, &o->hash)){
+			print("present\n");
+			return;
+		}
+		probe = (probe + 1) % s->sz;
+	}
+	assert(s->obj[probe] == nil);
 	s->obj[probe] = o;
 	s->nobj++;
 	if(s->sz < 2*s->nobj){
@@ -49,7 +55,7 @@ oshas(Objset *s, Object *o)
 {
 	u32int probe;
 
-	for(probe = GETBE32(o->hash.h) % s->sz; s->obj[probe]; probe++)
+	for(probe = GETBE32(o->hash.h) % s->sz; s->obj[probe]; probe = (probe + 1) % s->sz)
 		if(hasheq(&s->obj[probe]->hash, &o->hash))
 			return 1; 
 	return 0;
