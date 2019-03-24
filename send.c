@@ -6,13 +6,19 @@
 
 typedef struct Objq Objq;
 typedef struct Buf Buf;
+typedef struct Compout Compout;
 
 struct Buf {
 	int off;
 	int sz;
 	uchar *data;
+};
+
+struct Compout {
+	int fd;
 	DigestState *st;
 };
+
 
 enum {
 	Nproto	= 16,
@@ -212,24 +218,25 @@ resolveref(Hash *h, char *ref)
 }
 
 void
-pack(Objset *send, Object *o)
+pack(Objset *send, Objset *skip, Object *o)
 {
 	Object *s;
 	int i;
 
-	print("adding object %H to pack\n", o->hash);
+	if(oshas(send, o) || oshas(skip, o))
+		return;
 	osadd(send, o);
 	switch(o->type){
 	case GCommit:
 		if((s = readobject(o->tree)) == nil)
 			sysfatal("could not read tree for commit %H", o->hash);
-		pack(send, s);
+		pack(send, skip, s);
 		break;
 	case GTree:
 		for(i = 0; i < o->nent; i++){
 			if ((s = readobject(o->ent[i].h)) == nil)
 				sysfatal("could not read tree for commit %H", o->hash);
-			pack(send, s);
+			pack(send, skip, s);
 		}
 		break;
 	default:
@@ -246,7 +253,6 @@ compread(void *p, void *dst, int n)
 	if(n > b->sz - b->off)
 		n = b->sz - b->off;
 	memcpy(dst, b->data + b->off, n);
-	b->st = sha1(b->data, n, nil, b->st);
 	b->off += n;
 	return n;
 }
@@ -254,7 +260,11 @@ compread(void *p, void *dst, int n)
 int
 compwrite(void *p, void *buf, int n)
 {
-	return write(*(int*)p, buf, n);
+	Compout *o;
+
+	o = p;
+	o->st = sha1(buf, n, nil, o->st);
+	return write(o->fd, buf, n);
 }
 
 int
@@ -265,11 +275,14 @@ compress(int fd, void *buf, int sz, DigestState **st)
 		.off=0,
 		.data=buf,
 		.sz=sz,
-		.st=*st
+	};
+	Compout o = {
+		.fd = fd,
+		.st = *st,
 	};
 
-	r = deflatezlib(&fd, compwrite, &b, compread, 6, 0);
-	*st = b.st;
+	r = deflatezlib(&o, compwrite, &b, compread, 6, 0);
+	*st = o.st;
 	return r;
 }
 
@@ -280,31 +293,30 @@ writeobject(int fd, Object *o, DigestState **st)
 	uvlong sz;
 	int i;
 
+	i = 1;
 	sz = o->size;
 	hdr[0] = o->type << 4;
-	hdr[0] = sz & 0xf;
-	if(sz > (1 << 4))
+	hdr[0] |= sz & 0xf;
+	if(sz >= (1 << 4)){
 		hdr[0] |= 0x80;
-
-	sz >>= 4;
-	for(i = 1; i < sizeof(hdr); i++){
-		hdr[i] = sz & 0x7f;
-		if(sz > 0x7f)
+		sz >>= 4;
+	
+		for(i = 1; i < sizeof(hdr); i++){
+			hdr[i] = sz & 0x7f;
+			if(sz <= 0x7f){
+				i++;
+				break;
+			}
 			hdr[i] |= 0x80;
-		else
-			break;
-		sz >>= 7;
+			sz >>= 7;
+		}
 	}
 
-	print("hdr: %d: %02x%02x%02x%02x.%02x%02x%02x%02x\n",
-		i,
-		hdr[0], hdr[1], hdr[2], hdr[3],
-		hdr[4], hdr[5], hdr[6], hdr[7]);
 	if(hwrite(fd, hdr, i, st) != i)
 		return -1;
 	if(compress(fd, o->data, o->size, st) == -1)
 		return -1;
-	return 0;	
+	return 0;
 }
 
 int
@@ -324,13 +336,12 @@ writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
 		print("boundary object: %H\n", remote[i]);
 		if((o = readobject(remote[i])) == nil)
 			sysfatal("could not read %H", remote[i]);
-		osadd(&skip, o);
+		pack(&skip, &skip, o);
 	}
 
 	q = nil;
 	e = nil;
 	for(i = 0; i < nlocal; i++){
-		print("root object: %H\n", local[i]);
 		if((o = readobject(local[i])) == nil)
 			sysfatal("could not read object %H", local[i]);
 
@@ -350,7 +361,7 @@ writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
 		
 		if(oshas(&skip, o) || oshas(&send, o))
 			continue;
-		pack(&send, o);
+		pack(&send, &skip, o);
 		for(i = 0; i < o->nparent; i++){
 			if((p = readobject(o->parent[i])) == nil)
 				sysfatal("could not read parent of %H", o->hash);
@@ -363,21 +374,20 @@ writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
 	}
 
 	st = nil;
-	if(hwrite(fd, "PACK\0\0\0\02", 8, &st) == -1)
+	PUTBE32(buf, send.nobj);
+	if(hwrite(fd, "PACK\0\0\0\02", 8, &st) != 8)
 		return -1;
 	if(hwrite(fd, buf, 4, &st) == -1)
 		return -1;
 	for(i = 0; i < send.sz; i++){
 		if(!send.obj[i])
 			continue;
-		print("writing object %H\n", send.obj[i]->hash);
 		if(writeobject(fd, send.obj[i], &st) == -1)
 			return -1;
 	}
 	sha1(nil, 0, h.h, st);
 	if(write(fd, h.h, sizeof(h.h)) == -1)
 		return -1;
-	print("done writing\n");
 	return 0;
 }
 
@@ -423,7 +433,7 @@ sendpack(int fd)
 				updating = 0;
 				break;
 			}
-			n = snprint(buf, sizeof(buf), "%H %H %s\r\n",
+			n = snprint(buf, sizeof(buf), "%H %H %s",
 				theirs[i], ours[i], refnames[i]);
 			if(n >= sizeof(buf))
 				sysfatal("overlong update\n");
@@ -435,7 +445,6 @@ sendpack(int fd)
 	flushpkt(fd);
 	if(!updating)
 		sysfatal("nothing to do here\n");
-	print("writing pack\n");
 	return writepack(fd, theirs, nref, ours, nref);
 }
 
