@@ -37,6 +37,7 @@ enum {
 
 struct Ols {
 	int qtype;
+	vlong mtime;
 	int l0;
 	int n0;
 	Dir *d0;
@@ -61,6 +62,7 @@ struct Gitaux {
 	char 	*refpath;
 	Ols	*ols;
 	int	 qdir;
+	vlong	 mtime;
 };
 
 char *qroot[] = {
@@ -74,17 +76,20 @@ char *mtpt = "/n/git";
 char **branches = nil;
 
 static int
-rootgen(int i, Dir *d, void *)
+rootgen(int i, Dir *d, void *p)
 {
+	Gitaux *aux;
 
 	if (i >= nelem(qroot))
 		return -1;
+	aux = p;
 	d->mode = 0555 | DMDIR;
 	d->name = estrdup9p(qroot[i]);
 	d->qid.path = i;
 	d->uid = estrdup9p(username);
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
+	d->mtime = aux->mtime;
 	return 0;
 }
 
@@ -101,6 +106,7 @@ branchgen(int i, Dir *d, void *p)
 	d->uid = estrdup9p(username);
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
+	d->mtime = aux->mtime;
 	if((n = slurpdir(aux->refpath, &refs)) < 0)
 		return -1;
 	if(i < n){
@@ -135,21 +141,24 @@ gtreegen(int i, Dir *d, void *p)
 	d->name = estrdup9p(aux->obj->ent[i].name);
 	d->qid.path = QPATH(o->id, aux->qdir);
 	d->length = o->size;
+	d->mtime = aux->mtime;
 	return 0;
 }
 
 static int
 gcommitgen(int i, Dir *d, void *p)
 {
+	Gitaux *aux;
 	Object *o;
 
-	o = ((Gitaux*)p)->obj;
+	aux = p;
+	o = aux->obj;
 	d->uid = estrdup9p(username);
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
 	d->mode = 0444;
 	d->atime = o->ctime;
-	d->mtime = o->ctime;
+	d->mtime = o->mtime;
 
 	switch(i){
 	case 0:
@@ -180,7 +189,7 @@ gcommitgen(int i, Dir *d, void *p)
 }
 
 static void
-obj2dir(Dir *d, Object *o, long qdir)
+obj2dir(Dir *d, Object *o, long qdir, long mtime)
 {
 	char name[64];
 
@@ -189,7 +198,7 @@ obj2dir(Dir *d, Object *o, long qdir)
 	d->qid.type = QTDIR;
 	d->qid.path = QPATH(o->id, qdir);
 	d->atime = o->ctime;
-	d->mtime = o->mtime;
+	d->mtime = mtime;
 	d->mode = 0755 | DMDIR;
 	if(o->type == GBlob || o->type == GTag){
 		d->qid.type = 0;
@@ -233,9 +242,9 @@ openpack(char *path, int *np)
 
 static int
 nextpack(Ols *st){
-	char path[128];
-	char *n;
+	char path[128], *n;
 	int nn, np;
+	Dir *d;
 
 	close(st->pfd);
 	while(1){
@@ -252,6 +261,9 @@ nextpack(Ols *st){
 		snprint(path, sizeof(path), ".git/objects/pack/%s", n);
 		if((st->pfd = openpack(path, &st->np)) == -1)
 			return -1;
+		if((d = dirfstat(st->pfd)) != nil)
+			st->mtime = d->mtime;
+		free(d);
 		return 0;
 	}
 }
@@ -260,10 +272,14 @@ static int
 nextdir(Ols *st)
 {
 	char path[128];
+	Dir *d;
 
 	if(st->l0 == st->n0)
 		return -1;
 	snprint(path, sizeof(path), ".git/objects/%s", st->d0[st->l0].name);
+	if((d = dirstat(path)) != nil)
+		st->mtime = d->mtime;
+	free(d);
 	st->inpack = 0;
 	if(strcmp(st->d0[st->l0].name, "pack") == 0)
 		st->inpack = 1;
@@ -277,12 +293,15 @@ nextdir(Ols *st)
 }
 
 static int
-objgen1(Dir *d, Ols *st)
+objgen1(Dir *d, Gitaux *aux)
 {
 	char name[64];
+	vlong mtime;
 	Object *o;
+	Ols *st;
 	Hash h;
 
+	st = aux->ols;
 	while(1){
 		if(st->inpack){
 			if(st->lp < st->np){
@@ -290,7 +309,10 @@ objgen1(Dir *d, Ols *st)
 					return -1;
 				if((o = readobject(h)) == nil)
 					return -1;
-				obj2dir(d, o, Qobject);
+				mtime = aux->mtime;
+				if(o->type == GCommit)
+					mtime=o->mtime;
+				obj2dir(d, o, Qobject, mtime);
 				st->lp++;
 				st->oprev = o;
 				return 0;
@@ -304,7 +326,10 @@ objgen1(Dir *d, Ols *st)
 					return -1;
 				if((o = readobject(h)) == nil)
 					return -1;
-				obj2dir(d, o, Qobject);
+				mtime = aux->mtime;
+				if(o->type == GCommit)
+					mtime=o->mtime;
+				obj2dir(d, o, Qobject, mtime);
 				st->l1++;
 				st->oprev = o;
 				return 0;
@@ -318,12 +343,15 @@ objgen1(Dir *d, Ols *st)
 static int
 objgen(int i, Dir *d, void *p)
 {
+	Gitaux *aux;
 	Ols *st;
 
-	st = p;
+	aux = p;
+	st = aux->ols;
+	d->mtime = aux->mtime;
 	/* We tried to sent it, but it didn't fit */
 	if(st->oprev && i == st->last - 1){
-		obj2dir(d, st->oprev, Qobject);
+		obj2dir(d, st->oprev, Qobject, aux->mtime);
 		st->oprev = nil;
 		return 0;
 	}
@@ -338,10 +366,10 @@ objgen(int i, Dir *d, void *p)
 	}
 
 	while  (st->last++ < i)
-		if (objgen1(d, st) == -1)
+		if (objgen1(d, aux) == -1)
 			goto done;
 
-	if(objgen1(d, st) == 0)
+	if(objgen1(d, aux) == 0)
 		return 0;
 done:
 	free(st->d0);
@@ -395,11 +423,15 @@ static void
 gitattach(Req *r)
 {
 	Gitaux *aux;
+	Dir *d;
 
+	if((d = dirstat(".git")) == nil)
+		sysfatal("stat .git: %r");
 	aux = emalloc(sizeof(Gitaux));
 	aux->path[0] = (Qid){Qroot, 0, QTDIR};
 	aux->opath[0] = nil;
 	aux->npath = 1;
+	aux->mtime = d->mtime;
 	r->ofcall.qid = (Qid){Qroot, 0, QTDIR};
 	r->fid->qid = r->ofcall.qid;
 	r->fid->aux = aux;
@@ -464,8 +496,8 @@ static Object *
 readref(char *pathstr)
 {
 	char buf[128], path[128], *p, *e;
-	Hash h;
 	int n, f;
+	Hash h;
 
 	snprint(path, sizeof(path), "%s", pathstr);
 	while(1){
@@ -564,6 +596,8 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 			q->path = QPATH(aux->obj->id, Qcommit);
 		else
 			e = Eexist;
+		if(aux->obj)
+			aux->mtime = aux->obj->mtime;
 		free(d);
 		break;
 	case Qobject:
@@ -661,7 +695,7 @@ gitread(Req *r)
 
 	switch(QDIR(q)){
 	case Qroot:
-		dirread9p(r, rootgen, nil);
+		dirread9p(r, rootgen, aux);
 		break;
 	case Qbranch:
 		if(o)
@@ -673,7 +707,7 @@ gitread(Req *r)
 		if(o)
 			objread(r, aux);
 		else
-			dirread9p(r, objgen, aux->ols);
+			dirread9p(r, objgen, aux);
 		break;
 	case Qcommit:
 		objread(r, aux);
@@ -722,7 +756,7 @@ gitstat(Req *r)
 	r->d.qid = r->fid->qid;
 	r->d.mode = 0755 | DMDIR;
 	if(aux->obj){
-		obj2dir(&r->d, aux->obj, QDIR(q));
+		obj2dir(&r->d, aux->obj, QDIR(q), aux->mtime);
 	} else {
 		switch(QDIR(q)){
 		case Qroot:
