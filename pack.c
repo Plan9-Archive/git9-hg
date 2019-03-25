@@ -561,6 +561,7 @@ parsecommit(Object *o)
 	}
 	o->msg = p;
 	o->nmsg = np;
+	print("%H: mtime=%lld\n", o->hash, o->mtime);
 }
 
 static void
