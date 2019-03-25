@@ -584,6 +584,8 @@ parsetree(Object *o)
 		m = strtol(buf, nil, 8);
 		/* FIXME: symlinks and other BS */
 		t->mode = m & 0777 | ((m & 0040000) ? DMDIR : 0);
+		if(t->mode == DMDIR)
+			t->mode |= 0755;
 		t->name = p;
 		nn = strlen(p) + 1;
 		p += nn;
