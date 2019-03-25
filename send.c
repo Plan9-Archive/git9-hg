@@ -35,8 +35,8 @@ struct Objq {
 };
 
 int chatty;
-int pushall;
-char curbranch[Npath] = "refs/heads/master";
+int sendall;
+char *curbranch = "refs/heads/master";
 
 void
 usage(void)
@@ -170,7 +170,6 @@ dialssh(char *host, char *, char *path)
 		execl("/bin/ssh", "ssh", host, "git-receive-pack", path, nil);
 	}else{
 		close(pfd[0]);
-		print("talking over fd %d\n", pfd[1]);
 		return pfd[1];
 	}
 	return -1;
@@ -425,7 +424,9 @@ sendpack(int fd)
 
 	updating = 0;
 	for(i = 0; i < nref; i++){
-		if(pushall || strcmp(curbranch, refnames[i]) == 0){
+		if(sendall || strcmp(curbranch, refnames[i]) == 0){
+			if(hasheq(&theirs[i], &ours[i]))
+				break;
 			print("%s: %H => %H\n", refnames[i], theirs[i], ours[i]);
 			if(readobject(theirs[i]) == nil){
 				fprint(2, "remote has diverged: pull and try again\n");
@@ -443,7 +444,7 @@ sendpack(int fd)
 	}
 	flushpkt(fd);
 	if(!updating)
-		sysfatal("nothing to do here\n");
+		sysfatal("nothing to do here");
 	return writepack(fd, theirs, nref, ours, nref);
 }
 
@@ -455,14 +456,11 @@ main(int argc, char **argv)
 	int fd;
 
 	ARGBEGIN{
-	case '?':
-		usage();
-		break;
-	case 'd':
-		chatty++;
-		break;
+	default:	usage();	break;
+	case 'a':	sendall++;	break;
+	case 'd':	chatty++;	break;
 	case 'b':
-		snprint(curbranch, sizeof(curbranch), "refs/%s", EARGF(usage()));
+		curbranch = smprint("refs/%s", EARGF(usage()));
 		break;
 	}ARGEND;
 
