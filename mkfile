@@ -7,11 +7,13 @@ TARG=\
 	send\
 	save\
 	conf\
+	walk\
 
 OFILES=\
 	pack.$O\
 	util.$O\
 	objset.$O\
+	index.$O
 
 HFILES=git.h
 

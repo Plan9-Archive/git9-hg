@@ -12,6 +12,7 @@ typedef struct Objset Objset;
 typedef struct Pack Pack;
 typedef struct Buf Buf;
 typedef struct Dirent Dirent;
+typedef struct Idxent Idxent;
 
 enum {
 	Pathmax=512,
@@ -35,6 +36,11 @@ struct Hash {
 struct Dirent {
 	char *name;
 	int mode;
+	Hash h;
+};
+
+struct Idxent {
+	Dir;
 	Hash h;
 };
 
@@ -76,6 +82,10 @@ struct Objset {
 	int	sz;
 };
 
+#define GETBE16(b)\
+		((((b)[0] & 0xFFul) <<  8) | \
+		 (((b)[1] & 0xFFul) <<  0))
+
 #define GETBE32(b)\
 		((((b)[0] & 0xFFul) << 24) | \
 		 (((b)[1] & 0xFFul) << 16) | \
@@ -90,6 +100,12 @@ struct Objset {
 		 (((b)[5] & 0xFFull) << 16) | \
 		 (((b)[6] & 0xFFull) <<  8) | \
 		 (((b)[7] & 0xFFull) <<  0))
+
+#define PUTBE16(b, n)\
+	do{ \
+		(b)[0] = (n) >> 8; \
+		(b)[1] = (n) >> 0; \
+	} while(0)
 
 #define PUTBE32(b, n)\
 	do{ \
@@ -137,6 +153,10 @@ void parseobject(Object *);
 int indexpack(char *, char *, Hash);
 int hasheq(Hash *, Hash *);
 
+/* index */
+long idxread(char *, char *, Idxent **);
+int idxwrite(int, Idxent *, long);
+
 /* object sets */
 void osinit(Objset *);
 void osadd(Objset *, Object *);
@@ -150,3 +170,4 @@ int hparse(Hash *, char *);
 int hassuffix(char *, char *);
 int swapsuffix(char *, int, char *, char *, char *);
 void die(char *, ...);
+
