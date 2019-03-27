@@ -101,7 +101,7 @@ rootgen(int i, Dir *d, void *)
 	d->name = estrdup9p(qroot[i]);
 	d->qid.vers = 0;
 	d->qid.type = strcmp(qroot[i], "ctl") == 0 ? 0 : QTDIR;
-	d->qid.path = i;
+	d->qid.path = QPATH(i, Qroot);
 	d->uid = estrdup9p(username);
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
