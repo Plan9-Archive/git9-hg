@@ -1,0 +1,30 @@
+#!/bin/rc -x
+
+if (! cd `{git/conf -r})
+	exit 'not in git repository'
+
+branch=`{awk '$1=="branch"{print $2}' < /n/git/ctl}
+dir=/n/git/branch/$branch/tree
+files = `{du -a $dir | awk '{print $2}' | sed 's@'$dir'/*@@'}
+datadir=/tmp/newcommit/data
+msgfile=/tmp/newcommit/msg
+mkdir -p 
+# We only want to copy the files that were added explicitly.
+for(f in $files){
+	mkdir -p $datadir/`{basename -d $f}
+	cp $f $datadir/$f
+}
+
+sam $msgfile
+if(! test -s $msgfile){
+	echo 'cancelling commit: empty message' >[1=2]
+	exits 'nocommit'
+}
+
+name=`{git/conf user.name}
+email=`{git/conf user.email}
+msg=`{cat /tmp/newcommit/msg}
+echo git/save -n $name -e $email  -m $msg -d $datadir
+#hash=`{git/save -n $name -e $email  -m $msg -d $datadir}
+
+#echo $hash > .git/refs/$branch
