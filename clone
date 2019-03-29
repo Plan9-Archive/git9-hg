@@ -31,14 +31,30 @@ echo '	url='$remote					>> .git/config
 echo '	fetch=+refs/heads/*:refs/remotes/origin/*'	>> .git/config
 git/fetch $remote | awk '
 	/^remote/{
-		gsub("^refs/heads", "refs/remotes/origin", $2)
-		outfile = ".git/" $2
-		system("mkdir -p `{basename -d "outfile"}")
-		print $3 > outfile
-		close(outfile)
+		if($2=="HEAD"){
+			headhash=$3
+			headref=""
+		}else{
+			gsub("^refs/heads", "refs/remotes/origin", $2)
+			if($2 == "refs/remotes/origin/master" || $3 == headhash)
+				headref=$2
+			outfile = ".git/" $2
+			system("mkdir -p `{basename -d "outfile"}")
+			print $3 > outfile
+			close(outfile)
+		}
 	}
-	{
-		print $0
+	END{
+		if(headref != ""){
+			remote = headref
+			gsub("^refs/remotes/origin", "refs/heads", remote)
+			system("mkdir -p .git/refs/heads");
+			system("cp .git/" remote " " headref)
+			print "ref: " headref > ".git/HEAD"
+		}else{
+			print "warning: detached head "headhash > /fd/2
+			print headhash > ".git/HEAD"
+		}
 	}
 '
 if(test -f .git/refs/remotes/origin/master){
