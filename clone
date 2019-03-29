@@ -23,6 +23,8 @@ if(test -e $local){
 
 mkdir -p $local/.git
 mkdir -p $local/.git/objects/pack/
+mkdir -p $local/.git/refs/heads/
+
 cd $local
 
 dircp /lib/git/template .git
@@ -47,18 +49,17 @@ git/fetch $remote | awk '
 	END{
 		if(headref != ""){
 			remote = headref
-			gsub("^refs/remotes/origin", "refs/heads", remote)
-			system("mkdir -p .git/refs/heads");
-			system("cp .git/" remote " " headref)
+			gsub("^refs/remotes/origin", "refs/heads", headref)
+			system("mkdir -p `{basename -d "headref"}");
+			system("cp .git/" remote " .git/" headref)
 			print "ref: " headref > ".git/HEAD"
 		}else{
-			print "warning: detached head "headhash > /fd/2
+			print "warning: detached head "headhash > "/fd/2"
 			print headhash > ".git/HEAD"
 		}
 	}
 '
 if(test -f .git/refs/remotes/origin/master){
-	mkdir -p .git/refs/heads/
 	cp .git/refs/remotes/origin/master .git/refs/heads/master
 	if(! test -e /n/git/ctl)
 		git/fs
