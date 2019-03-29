@@ -13,6 +13,7 @@ char *Eperm = "permission denied";
 char *Eexist = "does not exist";
 char *E2long = "path too long";
 char *Enodir = "not a directory";
+char *Erepo = "unable to read repo";
 char *Egreg = "wat";
 
 enum {
@@ -606,16 +607,39 @@ gitdestroyfid(Fid *f)
 		free(aux);
 }
 
+static char *
+readctl(Req *r)
+{
+	char data[512], buf[512], *p;
+	int fd, n;
+	if((fd = open(".git/HEAD", OREAD)) == -1)
+		return Erepo;
+	/* empty HEAD is invalid */
+	if((n = readn(fd, buf, sizeof(buf) - 1)) <= 0)
+		return Erepo;
+
+	p = buf;
+	buf[n] = 0;
+	if(strstr(p, "ref: ") == buf)
+		p += strlen("ref: ");
+	if(strstr(p, "refs/heads/") == p)
+		p += strlen("refs/heads/");
+	snprint(data, sizeof(data), "branch: %s", p);
+	readstr(r, data);
+	return nil;
+}
+
 static void
 gitread(Req *r)
 {
-	char buf[64];
+	char buf[64], *e;
 	Gitaux *aux;
 	Object *o;
 	Qid *q;
 
 	q = &r->fid->qid;
 	o = nil;
+	e = nil;
 	if(aux = r->fid->aux)
 		o = aux->obj;
 
@@ -658,12 +682,12 @@ gitread(Req *r)
 		readstr(r, o->author);
 		break;
 	case Qctl:
-		readstr(r, "");
+		e = readctl(r);
 		break;
 	default:
 		die("read: bad qid %Q", *q);
 	}
-	respond(r, nil);
+	respond(r, e);
 }
 
 static void
@@ -683,45 +707,42 @@ gitstat(Req *r)
 	r->d.mode = 0755 | DMDIR;
 	if(aux->obj){
 		obj2dir(&r->d, aux->obj, QDIR(q));
-		goto done;
-	}
-
-	switch(QDIR(q)){
-	case Qroot:
-		r->d.name = estrdup9p("/");
-		break;
-	case Qbranch:
-		if(aux->obj)
+	} else {
+		switch(QDIR(q)){
+		case Qroot:
+			r->d.name = estrdup9p("/");
+			break;
+		case Qbranch:
 			r->d.name = estrdup9p("branch");
-		break;
-	case Qobject:
-		if(!aux->obj)
+			break;
+		case Qobject:
 			r->d.name = estrdup9p("object");
-		break;
-	case Qctl:
-		r->d.name = estrdup9p("ctl");
-		r->d.mode = 0666;
-		break;
-	case Qcommit:
-		r->d.name = smprint("%H", aux->obj->hash);
-		break;
-	case Qcommitmsg:
-		r->d.name = estrdup9p("msg");
-		r->d.mode = 0644;
-		break;
-	case Qcommittree:
-		r->d.name = estrdup9p("tree");
-		break;
-	case Qcommitparent:
-		r->d.name = estrdup9p("info");
-		r->d.mode = 0644;
-		break;
-	case Qcommithash:
-		r->d.name = estrdup9p("hash");
-		r->d.mode = 0644;
-		break;
-	default:
-		die("stat: bad qid %Q", *q);
+			break;
+		case Qctl:
+			r->d.name = estrdup9p("ctl");
+			r->d.mode = 0666;
+			break;
+		case Qcommit:
+			r->d.name = smprint("%H", aux->obj->hash);
+			break;
+		case Qcommitmsg:
+			r->d.name = estrdup9p("msg");
+			r->d.mode = 0644;
+			break;
+		case Qcommittree:
+			r->d.name = estrdup9p("tree");
+			break;
+		case Qcommitparent:
+			r->d.name = estrdup9p("info");
+			r->d.mode = 0644;
+			break;
+		case Qcommithash:
+			r->d.name = estrdup9p("hash");
+			r->d.mode = 0644;
+			break;
+		default:
+			die("stat: bad qid %Q", *q);
+		}
 	}
 
 done:
