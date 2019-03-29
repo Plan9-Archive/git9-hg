@@ -146,10 +146,10 @@ mkcommit(Hash *c, char *msg, char *author, Hash *parents, int nparents, Hash tre
 	s = smprint(
 		"tree %H\n"
 		"parent %H\n"
-		"author %s\n"
+		"author %s <%s>\n"
 		"\n"
 		"%s",
-		tree, parents[0], author, msg);
+		tree, parents[0], name, email, msg);
 	USED(nparents);
 	ns = strlen(s);
 	nh = snprint(h, sizeof(h), "%T %d", GCommit, ns) + 1;
@@ -167,15 +167,16 @@ void
 main(int argc, char **argv)
 {
 	Hash c, t;
-	char *msg, *author;
+	char *msg, *name, *email;
 	int r;
 
 
 	msg = nil;
 	author = nil;
 	ARGBEGIN{
-	case 'm':	msg = EARGF(usage());		break;
-	case 'a':	author = EARGF(usage());	break;
+	case 'm':	msg = EARGF(usage());	break;
+	case 'n':	name = EARGF(usage());	break;
+	case 'e':	email = EARGF(usage());	break;
 	}ARGEND;
 	if(!msg || !author)
 		usage();
@@ -188,6 +189,6 @@ main(int argc, char **argv)
 		sysfatal("could not commit: %r\n");
 	if(r == 0)
 		sysfatal("empty commit: aborting\n");
-	mkcommit(&c, msg, author, &Zhash, 1, t);
+	mkcommit(&c, msg, name, email, &Zhash, 1, t);
 	print("committed %H\n", c);
 }

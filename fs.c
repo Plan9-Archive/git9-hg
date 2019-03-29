@@ -622,9 +622,9 @@ readctl(Req *r)
 	buf[n] = 0;
 	if(strstr(p, "ref: ") == buf)
 		p += strlen("ref: ");
-	if(strstr(p, "refs/heads/") == p)
-		p += strlen("refs/heads/");
-	snprint(data, sizeof(data), "branch: %s", p);
+	if(strstr(p, "refs/") == p)
+		p += strlen("refs/");
+	snprint(data, sizeof(data), "branch %s", p);
 	readstr(r, data);
 	return nil;
 }
@@ -745,7 +745,6 @@ gitstat(Req *r)
 		}
 	}
 
-done:
 	respond(r, nil);
 }
 
