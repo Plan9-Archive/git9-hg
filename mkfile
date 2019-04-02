@@ -26,6 +26,8 @@ HFILES=git.h
 
 # Override install target to install rc.
 install:V:
+	mkdir -p /$objtype/bin/git
+	mkdir -p /rc/bin/git
 	for (i in $TARG)
 		mk $MKFLAGS $i.install
 	for (i in $RC)
