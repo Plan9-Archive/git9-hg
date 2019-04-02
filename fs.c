@@ -261,7 +261,7 @@ openpack(char *path, int *np)
 		return -1;
 	if(seek(fd, 8 + 255*4, 0) == -1)
 		return -1;
-	if(read(fd, buf, sizeof(buf)) != sizeof(buf))
+	if(readn(fd, buf, sizeof(buf)) != sizeof(buf))
 		return -1;
 	*np = GETBE32(buf);
 	return fd;
@@ -520,10 +520,11 @@ readref(char *pathstr)
 			print("failed to open path: %r\n");
 			return nil;
 		}
-		if((n = read(f, buf, sizeof(buf) - 1)) == -1){
+		if((n = readn(f, buf, sizeof(buf) - 1)) == -1){
 			print("failed to read\n");
 			return nil;
 		}
+		close(f);
 		buf[n] = 0;
 		if(strncmp(buf, "ref:", 4) !=  0)
 			break;
@@ -673,7 +674,7 @@ readctl(Req *r)
 	/* empty HEAD is invalid */
 	if((n = readn(fd, buf, sizeof(buf) - 1)) <= 0)
 		return Erepo;
-
+	close(fd);
 	p = buf;
 	buf[n] = 0;
 	if(strstr(p, "ref: ") == buf)
@@ -834,4 +835,5 @@ threadmain(int argc, char **argv)
 	branches = emalloc(sizeof(char*));
 	branches[0] = nil;
 	threadpostmountsrv(&gitsrv, nil, mtpt, MCREATE);
+	exits(nil);
 }
