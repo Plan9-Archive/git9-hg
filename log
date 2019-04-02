@@ -2,20 +2,20 @@
 
 rfork en
 
-base=/n/git/object/
+base=/mnt/git/object/
 branch=$1
 if(~ $1 '')
 	branch='master'
-if(! test -e /n/git/ctl)
+if(! test -e /mnt/git/ctl)
 	git/fs
 
 commits=($branch)
-if(test -e /n/git/branch/heads/$branch)
-	commits=`{cat /n/git/branch/heads/$branch/hash}
-if not if(test -e /n/git/branch/$branch)
-	commits=`{cat /n/git/branch/$branch/hash}
-if not if(test -e /n/git/object/$branch/hash)
-	commits=`{cat /n/git/object/$branch/hash}
+if(test -e /mnt/git/branch/heads/$branch)
+	commits=`{cat /mnt/git/branch/heads/$branch/hash}
+if not if(test -e /mnt/git/branch/$branch)
+	commits=`{cat /mnt/git/branch/$branch/hash}
+if not if(test -e /mnt/git/object/$branch/hash)
+	commits=`{cat /mnt/git/object/$branch/hash}
 if not{
 	echo 'unknown commit '$branch >[2=1]
 	exit 'unknown commit '$branch

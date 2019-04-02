@@ -3,17 +3,16 @@
 if(! cd `{git/conf -r})
 	exit 'not in git repository'
 
-if(! test -e /n/git/ctl)
+if(! test -e /mnt/git/ctl)
 	git/fs
 
-branch=`{awk '$1=="branch"{print $2}' < /n/git/ctl}
+branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 indexed=`{du -a .git/index9/tracked | awk '{print $2}' | sed 's@^.git/index9/(tracked|removed)/*@@'}
 
-echo here
 for(f in $indexed){
 	if(! test -f $f || test -f .git/index9/removed/$f)
 		echo R $f
-	if not if(cmp $f /n/git/branch/$branch/tree/$f)
+	if not if(cmp $f /mnt/git/branch/$branch/tree/$f)
 		echo T $f
 	if not
 		echo D $f

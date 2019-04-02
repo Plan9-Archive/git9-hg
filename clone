@@ -21,8 +21,6 @@ if(test -e $local){
 }
 	
 fn clone{
-
-	
 	mkdir -p $local/.git
 	mkdir -p $local/.git/objects/pack/
 	mkdir -p $local/.git/refs/heads/
@@ -61,7 +59,7 @@ fn clone{
 			}
 		}
 	'} |[3] tr '\x0d' '\x0a'
-	tree=/n/git/branch/heads/master/tree
+	tree=/mnt/git/branch/heads/master/tree
 	if(test -f .git/refs/remotes/origin/master){
 		cp .git/refs/remotes/origin/master .git/refs/heads/master
 		git/fs

@@ -72,7 +72,7 @@ char *qroot[] = {
 };
 
 char *username;
-char *mtpt = "/n/git";
+char *mtpt = "/mnt/git";
 char **branches = nil;
 
 static vlong
