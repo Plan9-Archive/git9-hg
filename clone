@@ -61,10 +61,19 @@ fn clone{
 			}
 		}
 	'} |[3] tr '\x0d' '\x0a'
+	tree=/n/git/branch/heads/master/tree
 	if(test -f .git/refs/remotes/origin/master){
 		cp .git/refs/remotes/origin/master .git/refs/heads/master
 		git/fs
-		dircp /n/git/branch/heads/master/tree .
+		dircp $tree .
+		for(f in `{du -a $tree | awk '{print $2}'}){
+			rel=`{sed 's@^'$tree'/*@@' <{echo $f}}
+			if(~ $#rel 0)
+				rel=''
+			idx=.git/index9/tracked/$rel
+			mkdir -p `{basename -d $idx}
+			touch $idx
+		}
 	}
 }
 

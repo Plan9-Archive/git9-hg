@@ -104,4 +104,5 @@ main(int argc, char **argv)
 			if(showconf(file[j], s, p))
 				break;
 	}
+	exits(nil);
 }
