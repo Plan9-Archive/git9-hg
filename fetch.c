@@ -280,21 +280,16 @@ fetchpack(int fd, char *packtmp)
 	print("fetching...\n");
 	st = nil;
 	ntail = 0;
-	int dbgfd;
 
-	dbgfd = create("debug", OWRITE|OTRUNC, 0644);
 	while(1){
 		n = readn(fd, buf, sizeof buf);
 		if(n > 20){
 			st = sha1(tail, ntail, nil, st);
 			st = sha1((uchar*)buf, n - 20, nil, st);
-			write(dbgfd, tail, ntail);
-			write(dbgfd, buf, n - 20);
 			memcpy(tail, buf + n - 20, 20);
 			ntail = 20;
 		}else{
 			st = sha1(tail, n, nil, st);
-			write(dbgfd, tail, n);
 			break;
 		}
 		if(n == 0)
