@@ -95,13 +95,40 @@ blobify(char *path, vlong size, Hash *bh)
 }
 
 int
+tracked(char *path)
+{
+	char ipath[256];
+
+	/* Explicitly removed. */
+	if(snprint(ipath, sizeof(ipath), ".git/index9/removed/%s", path) >= sizeof(ipath))
+		sysfatal("overlong tracked path");
+	if(strstr(cleanname(ipath), ".git/index9/removed") != ipath)
+		sysfatal("path %s leaves index", ipath);
+	print("ipath: %s: exists: %d\n", ipath, access(ipath, AEXIST));
+	if(access(ipath, AEXIST) == 0)
+		return 0;
+
+	/* Explicitly added. */
+	if(snprint(ipath, sizeof(ipath), ".git/index9/tracked/%s", path) >= sizeof(ipath))
+		sysfatal("overlong tracked path");
+	if(strstr(cleanname(ipath), ".git/index9/tracked") != ipath)
+		sysfatal("path %s leaves index", ipath);
+	print("ipath: %s: exists: %d\n", ipath, access(ipath, AEXIST));
+	if(access(ipath, AEXIST) == 0)
+		return 1;
+
+	/* Default. */
+	return 0;
+}
+
+int
 treeify(char *path, Hash *th)
 {
 	char *t, h[64], l[256], ep[256];
 	int nd, nl, nt, nh, i, s;
 	Hash eh;
 	Dir *d;
-
+		
 	if((nd = slurpdir(path, &d)) == -1)
 		sysfatal("could not read %s", path);
 	if(nd == 0)
@@ -112,6 +139,8 @@ treeify(char *path, Hash *th)
 	for(i = 0; i < nd; i++){
 		if((snprint(ep, sizeof(ep), "%s/%s", path, d[i].name)) >= sizeof(ep))
 			sysfatal("overlong path");
+		if(!tracked(ep))
+			continue;
 		if(d[i].qid.type & QTDIR){
 			if(treeify(ep, &eh) == 0)
 				continue;
@@ -193,21 +222,19 @@ void
 main(int argc, char **argv)
 {
 	Hash c, t, parents[Maxparents];
-	char *msg, *name, *email, *dir;
+	char *msg, *name, *email;
 	int r, nparents;
 
 
 	msg = nil;
 	name = nil;
 	email = nil;
-	dir = nil;
 	nparents = 0;
 	gitinit();
 	ARGBEGIN{
 	case 'm':	msg = EARGF(usage());	break;
 	case 'n':	name = EARGF(usage());	break;
 	case 'e':	email = EARGF(usage());	break;
-	case 'd':	dir = EARGF(usage());	break;
 	case 'p':
 		if(nparents >= Maxparents)
 			sysfatal("too many parents");
@@ -219,7 +246,6 @@ main(int argc, char **argv)
 	if(!msg) sysfatal("missing message");
 	if(!name) sysfatal("missing name");
 	if(!email) sysfatal("missing email");
-	if(!dir) sysfatal("missing dir");
 	if(nparents == 0) sysfatal("need at least one parent");
 
 	if(!msg || !name)
@@ -228,7 +254,7 @@ main(int argc, char **argv)
 	gitinit();
 	if(access(".git", AEXIST) != 0)
 		sysfatal("could not find git repo: %r\n");
-	r = treeify(dir, &t);
+	r = treeify(".", &t);
 	if(r == -1)
 		sysfatal("could not commit: %r\n");
 	if(r == 0)

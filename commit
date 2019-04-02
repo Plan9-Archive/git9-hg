@@ -14,36 +14,34 @@ if(! test -e $dir)
 	dir=/n/git/object/$branch/tree
 if(! test -e $dir){
 	echo 'invalid branch' $branch >[2=1]
-	exits 'badbranch'
+	exit 'badbranch'
 }
 
-files = `{du -a $dir | awk '{print $2}' | sed 's@'$dir'/*@@'}
-datadir=/tmp/newcommit/data
-msgfile=/tmp/newcommit/msg
-mkdir -p 
-# We only want to copy the files that were added explicitly.
-for(f in $files){
-	mkdir -p $datadir/`{basename -d $f}
-	cp $f $datadir/$f
-}
-
+name=`{git/conf user.name}
+email=`{git/conf user.email}
+msgfile=/tmp/git-msg.$pid
+echo '' > $msgfile.tmp
+echo '# Commit message goes here.' >> $msgfile.tmp
+echo '# Author: '$name' <'$email'>' >> $msgfile.tmp
 sam $msgfile.tmp
-if(! test -s $msgfile.tmp){
+if(! test -s $msgfile.tmp || ~ `{wc -l <{grep -v '^[ 	]*[\n#]' $msgfile.tmp}} 0){
 	echo 'cancelling commit: empty message' >[1=2]
 	exits 'nocommit'
 }
 
-grep -v '^#' < $msgfile.tmp > $msgfile
+grep -v '^[ 	]*#' < $msgfile.tmp > $msgfile
 
-name=`{git/conf user.name}
-email=`{git/conf user.email}
 if(~ $name '')
 	name=`{cat /adm/keys.who | awk -F'|' '$1=="'$user'" {print $3}'}
 if(~ $email '')
 	email=`{cat /adm/keys.who | awk -F'|' '$1=="'$user'" {print $5}'}
-msg=`{cat /tmp/newcommit/msg}
-hash=`{git/save -n $"name -e $"email  -m $"msg -d $"datadir -p $branch}
 
-echo $hash > .git/refs/$branch
+msg=`"{cat $msgfile}
+hash=`{git/save -n $"name -e $"email  -m $"msg -p $"branch}
+if(~ hash ''){
+	echo 'could not commit: '$status
+	exit failcommit
+}
+#echo $hash > .git/refs/$branch
 
-rm -rf /tmp/newcommit
+rm -rf $msgfile $msgfile.tmp
