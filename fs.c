@@ -1,7 +1,7 @@
 #include <u.h>
 #include <libc.h>
-#include <thread.h>
 #include <fcall.h>
+#include <thread.h>
 #include <9p.h>
 
 #include "git.h"
@@ -823,7 +823,7 @@ usage(void)
 }
 
 void
-threadmain(int argc, char **argv)
+main(int argc, char **argv)
 {
 	gitinit();
 	ARGBEGIN{
@@ -834,6 +834,6 @@ threadmain(int argc, char **argv)
 	username = getuser();
 	branches = emalloc(sizeof(char*));
 	branches[0] = nil;
-	threadpostmountsrv(&gitsrv, nil, mtpt, MCREATE);
+	postmountsrv(&gitsrv, nil, mtpt, MCREATE);
 	exits(nil);
 }
