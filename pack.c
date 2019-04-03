@@ -737,7 +737,7 @@ indexpack(char *pack, char *idx, Hash ph)
 	if(!step)
 		step++;
 	while(nvalid != nobj){
-		print("indexing (%d/%d):", nvalid, nobj);
+		fprint(2, "indexing (%d/%d):", nvalid, nobj);
 		n = 0;
 		for(i = 0; i < nobj; i++){
 			if(valid[i]){
@@ -745,7 +745,7 @@ indexpack(char *pack, char *idx, Hash ph)
 				continue;
 			}
 			if(i % step == 0)
-				print(".");
+				fprint(2, ".");
 			if(objects[i]){
 				Bseek(f, o->off, 0);
 				o = objects[i];
@@ -762,7 +762,7 @@ indexpack(char *pack, char *idx, Hash ph)
 				n++;
 			}
 		}
-		print("\n");
+		fprint(2, "\n");
 		if(n == nvalid){
 			print("fix point reached too early: %d/%d: %r", nvalid, nobj);
 			goto error;
