@@ -1,4 +1,4 @@
-#!/bin/rc -e
+#!/bin/rc -ex
 
 rfork en
 
@@ -6,6 +6,8 @@ fn update{
 	branch=$1
 	url=$2
 	dir=$3
+	git/fetch -s $1 $2 
+	
 	{git/fetch -s $1 $2 >[2=3] | awk '
 		/^remote/{
 			if($2=="HEAD")
@@ -20,6 +22,12 @@ fn update{
 	'} |[3] tr '\x0d' '\x0a'
 }
 
+if(! cd `{git/conf -r})
+	exit 'not in git repository'
+
+if(! test -e /mnt/git/ctl)
+	git/fs
+
 upstream=origin
 url=`{git/conf 'remote "'$upstream'".url'}
 branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
@@ -33,5 +41,5 @@ if(! git/walk -c){
 echo branch: $branch
 echo url: $url
 echo dir: $dir
-update $branch $url $dir
+update $upstream $url $dir
 git/checkout $branch
