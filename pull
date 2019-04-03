@@ -1,0 +1,37 @@
+#!/bin/rc -e
+
+rfork en
+
+fn update{
+	branch=$1
+	url=$2
+	dir=$3
+	{git/fetch -s $1 $2 >[2=3] | awk '
+		/^remote/{
+			if($2=="HEAD")
+				next
+
+			gsub("^refs/heads", "refs/remotes/'$remote'", $2)
+			outfile = ".git/" $2
+			system("mkdir -p `{basename -d "outfile"}")
+			print $3 > outfile
+			close(outfile)
+		}
+	'} |[3] tr '\x0d' '\x0a'
+}
+
+upstream=origin
+url=`{git/conf 'remote "'$upstream'".url'}
+branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+dir=/mnt/git/branch/$branch/tree
+if(! git/walk -c){
+	echo $status
+	echo 'repository is dirty: commit before pulling' >[1=2]
+	exit 'dirty'
+}
+
+echo branch: $branch
+echo url: $url
+echo dir: $dir
+update $branch $url $dir
+git/checkout $branch

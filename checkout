@@ -13,7 +13,7 @@ if(! cd `{git/conf -r}){
 	exit notgit
 }
 
-files=$pfx^$files
+files=$files
 tree=/mnt/git/HEAD/tree
 rm -rf .git/index9/^$files
 rm -f $files
