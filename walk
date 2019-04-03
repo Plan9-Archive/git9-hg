@@ -1,4 +1,4 @@
-#!/bin/rc -e
+#!/bin/rc
 
 fn usage{
 	echo usage: $argv0 [-c] >[2=1]
@@ -19,7 +19,7 @@ if(! test -e /mnt/git/ctl)
 	git/fs
 
 cleanonly=''
-status=''
+result=''
 branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 while(~ $1 -*){
 	switch($1){
@@ -34,14 +34,15 @@ indexed=`{du -a .git/index9/tracked | awk '{print $2}' | sed 's@^.git/index9/(tr
 
 for(f in $indexed){
 	if(! test -f $f || test -f .git/index9/removed/$f){
-		echo R $f
-		status='dirty'
-	}if not if(! cmp $f /mnt/git/branch/$branch/tree/$f){
-		decho D $f
-		status='dirty'
-	}if not{
-		decho T $f
+		decho R $f
+		result=dirty
 	}
+	if not if(! cmp $f /mnt/git/branch/$branch/tree/$f){
+		decho D $f
+		result=dirty
+	}
+	if not
+		decho T $f
 }
 
-exit $status
+exit $result
