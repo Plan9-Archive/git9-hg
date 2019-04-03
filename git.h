@@ -164,6 +164,7 @@ int oshas(Objset *, Object *);
 
 /* util functions */
 void *emalloc(ulong);
+void *erealloc(void *, ulong);
 char *estrdup(char *);
 int slurpdir(char *, Dir **);
 int hparse(Hash *, char *);
