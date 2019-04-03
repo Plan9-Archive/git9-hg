@@ -1,19 +1,47 @@
 #!/bin/rc -e
 
+fn usage{
+	echo usage: $argv0 [-c] >[2=1]
+	echo '	-d:	exit with status "dirty" if files changed.' >[2=1]
+	echo '		supresses other output' >[2=1]
+	exit usage
+}
+
+fn decho{
+	if(~ $cleanonly '')
+		echo $*
+}
+
 if(! cd `{git/conf -r})
 	exit 'not in git repository'
 
 if(! test -e /mnt/git/ctl)
 	git/fs
 
+cleanonly=''
+status=''
 branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+while(~ $1 -*){
+	switch($1){
+	case -c; cleanonly=true;
+	case --; break;
+	case *; usage
+	}
+	shift
+}
+
 indexed=`{du -a .git/index9/tracked | awk '{print $2}' | sed 's@^.git/index9/(tracked|removed)/*@@'}
 
 for(f in $indexed){
-	if(! test -f $f || test -f .git/index9/removed/$f)
+	if(! test -f $f || test -f .git/index9/removed/$f){
 		echo R $f
-	if not if(cmp $f /mnt/git/branch/$branch/tree/$f)
-		echo T $f
-	if not
-		echo D $f
+		status='dirty'
+	}if not if(! cmp $f /mnt/git/branch/$branch/tree/$f){
+		decho D $f
+		status='dirty'
+	}if not{
+		decho T $f
+	}
 }
+
+exit $status

@@ -1,0 +1,28 @@
+#!/bin/rc -e
+
+rfork en
+
+
+files=$*
+pfx=`{git/conf -p}
+if(~ $#* 0)
+	files=`{git/walk | awk '$1=="D"||$1=="T"{print $2}'}
+
+if(! cd `{git/conf -r}){
+	echo 'not a git repository' >[1=2]
+	exit notgit
+}
+
+files=$pfx^$files
+tree=/mnt/git/HEAD/tree
+rm -rf .git/index9/^$files
+rm -f $files
+for(f in $files){
+	rel=`{sed 's@^'$tree'/*@@' <{echo $f}}
+	if(~ $#rel 0)
+		rel=''
+	idx=.git/index9/tracked/$rel
+	mkdir -p `{basename -d $idx}
+	touch $idx
+	cp $tree/$f $f
+}

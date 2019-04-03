@@ -9,11 +9,14 @@ TARG=\
 	conf\
 
 RC=\
+	add\
+	branch\
+	checkout\
 	clone\
 	commit\
 	log\
-	add\
 	walk
+
 
 OFILES=\
 	pack.$O\
