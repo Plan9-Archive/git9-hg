@@ -138,7 +138,6 @@ dialssh(char *host, char *, char *path)
 		execl("/bin/ssh", "ssh", host, "git-upload-pack", path, nil);
 	}else{
 		close(pfd[0]);
-		print("talking over fd %d\n", pfd[1]);
 		return pfd[1];
 	}
 	return -1;
@@ -168,16 +167,32 @@ dialgit(char *host, char *port, char *path)
 	return fd;
 }
 
+char *
+strip(char *s)
+{
+	char *e;
+
+	while(isspace(*s))
+		s++;
+	e = s + strlen(s);
+	while(e > s && isspace(*--e))
+		*e = 0;
+	return s;
+}
+
 int
 resolveref(Hash *h, char *ref)
 {
-	char buf[128];
+	char buf[128], *s;
 	int r, f;
 
+	ref = strip(ref);
 	if((r = hparse(h, ref)) != -1)
 		return r;
 	/* Slightly special handling: translate remote refs to local ones. */
-	if(strstr(ref, "refs/heads") == ref){
+	if(strcmp(ref, "HEAD") == 0){
+		snprint(buf, sizeof(buf), ".git/HEAD");
+	}else if(strstr(ref, "refs/heads") == ref){
 		ref += strlen("refs/heads");
 		snprint(buf, sizeof(buf), ".git/refs/remotes/%s/%s", clonesrc, ref);
 	}else if(strstr(ref, "refs/tags") == ref){
@@ -187,14 +202,17 @@ resolveref(Hash *h, char *ref)
 		return -1;
 	}
 
-	if((f = open(buf, OREAD)) == -1)
+	s = strip(buf);
+	if((f = open(s, OREAD)) == -1){
+		print("could not open: %r");
 		return -1;
+	}
 	if(readn(f, buf, sizeof(buf)) >= 40)
 		r = hparse(h, buf);
 	close(f);
 
-	if(r == -1 && strstr(buf, "ref: ") == buf)
-		return resolveref(h, buf + strlen("ref: "));
+	if(r == -1 && strstr(buf, "ref:") == buf)
+		return resolveref(h, buf + strlen("ref:"));
 	
 	return r;
 }
@@ -241,8 +259,8 @@ fetchpack(int fd, char *packtmp)
 		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
 		if(hparse(&want[i], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
-		if(resolveref(&have[i], sp[1]) == -1)
-			memset(&have[i], 0, 0);
+		if (resolveref(&have[i], sp[1]) == -1)
+			memset(&have[i], 0, sizeof(have[i]));
 		print("remote %s %H local %H\n", sp[1], want[i], have[i]);
 	}
 	nref = i;
