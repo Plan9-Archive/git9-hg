@@ -157,8 +157,6 @@ dialgit(char *host, char *port, char *path)
 	l = 0;
 	l += snprint(cmd, sizeof(cmd), "git-upload-pack %s", path) + 1;
 	l += snprint(cmd + l, sizeof(cmd) - l, "host=%s", host);
-	print("pktline=");
-	write(1, cmd, l + 1);
 	if(writepkt(fd, cmd, l + 1) == -1){
 		print("failed to write message\n");
 		close(fd);
@@ -203,10 +201,8 @@ resolveref(Hash *h, char *ref)
 	}
 
 	s = strip(buf);
-	if((f = open(s, OREAD)) == -1){
-		print("could not open: %r");
+	if((f = open(s, OREAD)) == -1)
 		return -1;
-	}
 	if(readn(f, buf, sizeof(buf)) >= 40)
 		r = hparse(h, buf);
 	close(f);
@@ -244,8 +240,8 @@ fetchpack(int fd, char *packtmp)
 	char buf[65536];
 	char idxtmp[256];
 	char *sp[3];
-	Hash h, have[64];
-	Hash want[64];
+	Hash h, have[512];
+	Hash want[512];
 	int i, n, nref, req, pfd, ntail;
 
 	for(i = 0; i < nelem(want); i++){
@@ -284,14 +280,16 @@ fetchpack(int fd, char *packtmp)
 			sysfatal("could not send have for %H", have[i]);
 	}
 	if(!req){
-		flushpkt(fd);
 		print("up to date\n");
+		flushpkt(fd);
 	}
 	n = snprint(buf, sizeof(buf), "done\n");
 	if(writepkt(fd, buf, n) == -1)
 		sysfatal("lost connection write");
-	if(readpkt(fd, buf, sizeof(buf)) == -1)
+	if((n = readpkt(fd, buf, sizeof(buf))) == -1)
 		sysfatal("lost connection read");
+	buf[n] = 0;
+	print("last msg: %s\n", buf);
 	pfd = create(packtmp, ORDWR, 0644);
 	if(pfd == -1)
 		sysfatal("could not open pack %s", packtmp);
