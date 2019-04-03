@@ -3,7 +3,7 @@
 rfork ne
 
 fn usage {
-	echo 'usage: $argv0 [-r] files..' >[1=2]
+	echo 'usage: '$argv0' [-r] files..' >[1=2]
 	echo '	-r:		remove instead of adding' >[1=2]
 }
 

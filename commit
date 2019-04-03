@@ -5,13 +5,13 @@ rfork n
 if(! cd `{git/conf -r})
 	exit 'not in git repository'
 
-if(! test -e /n/git/ctl)
+if(! test -e /mnt/git/ctl)
 	git/fs
 
-branch=`{awk '$1=="branch"{print $2}' < /n/git/ctl}
-dir=/n/git/branch/$branch/tree
+branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+dir=/mnt/git/branch/$branch/tree
 if(! test -e $dir)
-	dir=/n/git/object/$branch/tree
+	dir=/mnt/git/object/$branch/tree
 if(! test -e $dir){
 	echo 'invalid branch' $branch >[2=1]
 	exit 'badbranch'
