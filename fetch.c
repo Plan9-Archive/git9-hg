@@ -244,6 +244,7 @@ fetchpack(int fd, char *packtmp)
 	Hash want[512];
 	int i, n, nref, req, pfd, ntail;
 
+	nref = 0;
 	for(i = 0; i < nelem(want); i++){
 		n = readpkt(fd, buf, sizeof(buf));
 		if(n == -1)
@@ -253,13 +254,15 @@ fetchpack(int fd, char *packtmp)
 		if(strncmp(buf, "ERR ", 4) == 0)
 			sysfatal("%s", buf + 4);
 		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
-		if(hparse(&want[i], sp[0]) == -1)
+		if(strstr(sp[1], "^{}"))
+			continue;
+		if(hparse(&want[nref], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
-		if (resolveref(&have[i], sp[1]) == -1)
-			memset(&have[i], 0, sizeof(have[i]));
-		print("remote %s %H local %H\n", sp[1], want[i], have[i]);
+		if (resolveref(&have[nref], sp[1]) == -1)
+			memset(&have[nref], 0, sizeof(have[nref]));
+		print("remote %s %H local %H\n", sp[1], want[nref], have[nref]);
+		nref++;
 	}
-	nref = i;
 
 	req = 0;
 	for(i = 0; i < nref; i++){
