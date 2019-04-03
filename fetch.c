@@ -240,12 +240,15 @@ fetchpack(int fd, char *packtmp)
 	char buf[65536];
 	char idxtmp[256];
 	char *sp[3];
-	Hash h, have[512];
-	Hash want[512];
-	int i, n, nref, req, pfd, ntail;
+	Hash h, *have, *want;
+	int nref, refsz;
+	int i, n, req, pfd, ntail;
 
 	nref = 0;
-	for(i = 0; i < nelem(want); i++){
+	refsz = 16;
+	have = emalloc(refsz * sizeof(have[0]));
+	want = emalloc(refsz * sizeof(want[0]));
+	while(1){
 		n = readpkt(fd, buf, sizeof(buf));
 		if(n == -1)
 			return -1;
@@ -256,6 +259,11 @@ fetchpack(int fd, char *packtmp)
 		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
 		if(strstr(sp[1], "^{}"))
 			continue;
+		if(refsz == nref + 1){
+			refsz *= 2;
+			have = erealloc(have, refsz * sizeof(have[0]));
+			want = erealloc(want, refsz * sizeof(want[0]));
+		}	
 		if(hparse(&want[nref], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
 		if (resolveref(&have[nref], sp[1]) == -1)

@@ -36,6 +36,18 @@ emalloc(ulong n)
 	return v;
 }
 
+void *
+erealloc(void *p, ulong n)
+{
+	void *v;
+	
+	v = realloc(p, n);
+	if(v == nil)
+		sysfatal("realloc: %r");
+	setmalloctag(v, getcallerpc(&n));
+	return v;
+}
+
 char*
 estrdup(char *s)
 {
