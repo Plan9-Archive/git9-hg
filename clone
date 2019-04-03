@@ -60,6 +60,7 @@ fn clone{
 		}
 	'} |[3] tr '\x0d' '\x0a'
 	tree=/mnt/git/branch/heads/master/tree
+	echo checking out repository...
 	if(test -f .git/refs/remotes/origin/master){
 		cp .git/refs/remotes/origin/master .git/refs/heads/master
 		git/fs
@@ -73,11 +74,18 @@ fn clone{
 			touch $idx
 		}
 	}
+	if not{
+		echo no master branch >[1=2]
+		echo check out your code with git/checkout >[1=2]
+	}
 }
 
 @{clone}
 st=$status
-if(! ~ $st ''){
+if(~ $st ''){
+	echo done.
+}
+if not{
 	echo clone failed: $st >[2=1]
 	echo cleaning up $local >[2=1]
 	rm -rf $local
