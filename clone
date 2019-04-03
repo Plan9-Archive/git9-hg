@@ -21,12 +21,9 @@ if(test -e $local){
 }
 	
 fn clone{
-
-	
 	mkdir -p $local/.git
 	mkdir -p $local/.git/objects/pack/
 	mkdir -p $local/.git/refs/heads/
-	mkdir -p $local/.git/refs/tags/
 	
 	cd $local
 	
@@ -62,15 +59,20 @@ fn clone{
 			}
 		}
 	'} |[3] tr '\x0d' '\x0a'
-	if(! test -f .git/refs/remotes/origin/master)
-		exit "no master branch"
-
-	cp .git/refs/remotes/origin/master .git/refs/heads/master
-	git/fs
-	master=n/git/branch/heads/master/tree
-	dircp $master .
-	for(f in `{du -a $master | awk '{gsub('$master$2}'})
-		touch $
+	tree=/mnt/git/branch/heads/master/tree
+	if(test -f .git/refs/remotes/origin/master){
+		cp .git/refs/remotes/origin/master .git/refs/heads/master
+		git/fs
+		dircp $tree .
+		for(f in `{du -a $tree | awk '{print $2}'}){
+			rel=`{sed 's@^'$tree'/*@@' <{echo $f}}
+			if(~ $#rel 0)
+				rel=''
+			idx=.git/index9/tracked/$rel
+			mkdir -p `{basename -d $idx}
+			touch $idx
+		}
+	}
 }
 
 @{clone}
