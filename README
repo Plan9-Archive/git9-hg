@@ -10,7 +10,8 @@ directly.
 
 Git/fs is alpha software. It more or less works for me, but has many
 bugs, and many more missing tools, but it's at the point where the
-hard parts are done, and "the rest is just scripting".
+hard parts are done, and "the rest is just scripting", using standard
+command line tools (cp, echo, diff, patch, and diff3).
 
 Structure
 ---------
@@ -141,7 +142,7 @@ TODOs
 -----
 
 Documentation has not yet been written.  You'll need to read the
-source.
+source. Notably missing functionality includes:
 
 	git/mkpatch:	Generate a 'git am' compatible patch.
 	git/apply:	Apply a diff.
