@@ -17,6 +17,7 @@ char *Egreg = "wat";
 
 enum {
 	Qroot,
+	Qhead,
 	Qbranch,
 	Qcommit,
 	Qcommitmsg,
@@ -64,13 +65,14 @@ struct Gitaux {
 };
 
 char *qroot[] = {
+	"HEAD",
 	"branch",
 	"object",
 	"ctl",
 };
 
 char *username;
-char *mtpt = "/n/git";
+char *mtpt = "/mnt/git";
 char **branches = nil;
 
 static vlong
@@ -259,7 +261,7 @@ openpack(char *path, int *np)
 		return -1;
 	if(seek(fd, 8 + 255*4, 0) == -1)
 		return -1;
-	if(read(fd, buf, sizeof(buf)) != sizeof(buf))
+	if(readn(fd, buf, sizeof(buf)) != sizeof(buf))
 		return -1;
 	*np = GETBE32(buf);
 	return fd;
@@ -483,7 +485,7 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 		}
 	}else if(o->type == GCommit){
 		q->type = 0;
-		assert(qdir == Qcommit || qdir == Qobject || qdir == Qcommittree);
+		assert(qdir == Qcommit || qdir == Qobject || qdir == Qcommittree || qdir == Qhead);
 		if(strcmp(name, "msg") == 0)
 			q->path = QPATH(aux->obj->id, Qcommitmsg);
 		else if(strcmp(name, "parent") == 0)
@@ -518,10 +520,11 @@ readref(char *pathstr)
 			print("failed to open path: %r\n");
 			return nil;
 		}
-		if((n = read(f, buf, sizeof(buf) - 1)) == -1){
+		if((n = readn(f, buf, sizeof(buf) - 1)) == -1){
 			print("failed to read\n");
 			return nil;
 		}
+		close(f);
 		buf[n] = 0;
 		if(strncmp(buf, "ref:", 4) !=  0)
 			break;
@@ -567,7 +570,10 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 
 	switch(QDIR(&fid->qid)){
 	case Qroot:
-		if(strcmp(name, "object") == 0){
+		if(strcmp(name, "HEAD") == 0){
+			*q = (Qid){Qhead, 0, QTDIR};
+			aux->obj = readref(".git/HEAD");
+		}else if(strcmp(name, "object") == 0){
 			*q = (Qid){Qobject, 0, QTDIR};
 		}else if(strcmp(name, "branch") == 0){
 			*q = (Qid){Qbranch, 0, QTDIR};
@@ -606,9 +612,12 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 			q->vers = 0;
 		}
 		break;
+	case Qhead:
+		e = objwalk1(q, aux, name, Qhead);
+		break;
 	case Qcommit:
 		e = objwalk1(q, aux, name, Qcommit);
-		break;	
+		break;
 	case Qcommittree:
 		e = objwalk1(q, aux, name, Qcommittree);
 		break;
@@ -665,7 +674,7 @@ readctl(Req *r)
 	/* empty HEAD is invalid */
 	if((n = readn(fd, buf, sizeof(buf) - 1)) <= 0)
 		return Erepo;
-
+	close(fd);
 	p = buf;
 	buf[n] = 0;
 	if(strstr(p, "ref: ") == buf)
@@ -707,21 +716,13 @@ gitread(Req *r)
 		else
 			dirread9p(r, objgen, aux);
 		break;
-	case Qcommit:
-		objread(r, aux);
-		break;
 	case Qcommitmsg:
 		readbuf(r, o->msg, o->nmsg);
 		break;
 	case Qcommitparent:
 		readcommitparent(r, o);
 		break;
-	case Qcommittree:
-		objread(r, aux);
-		break;
-	case Qcommitdata:
-		objread(r, aux);
-		break;
+
 	case Qcommithash:
 		snprint(buf, sizeof(buf), "%H\n", o->hash);
 		readstr(r, buf);
@@ -731,6 +732,12 @@ gitread(Req *r)
 		break;
 	case Qctl:
 		e = readctl(r);
+		break;
+	case Qhead:
+	case Qcommit:
+	case Qcommittree:
+	case Qcommitdata:
+		objread(r, aux);
 		break;
 	default:
 		die("read: bad qid %Q", *q);
@@ -828,4 +835,5 @@ threadmain(int argc, char **argv)
 	branches = emalloc(sizeof(char*));
 	branches[0] = nil;
 	threadpostmountsrv(&gitsrv, nil, mtpt, MCREATE);
+	exits(nil);
 }
