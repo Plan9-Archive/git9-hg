@@ -135,14 +135,6 @@ Qfmt(Fmt *fmt)
 	    q.path, QDIR(&q), (q.path >> 8), q.vers, q.type);
 }
 
-static int
-objcmp(Avl *aa, Avl *bb)
-{
-	Object *a = (Object*)aa;
-	Object *b = (Object*)bb;
-	return memcmp(a->hash.h, b->hash.h, sizeof(a->hash.h));
-}
-
 void
 gitinit(void)
 {
@@ -153,7 +145,7 @@ gitinit(void)
 	inflateinit();
 	deflateinit();
 	authorpat = regcomp("[\t ]*(.*)[\t ]+([0-9]+)[\t ]+([\\-+]?[0-9]+)");
-	objcache = avlcreate(objcmp);
+	osinit(&objcache);
 }
 
 int

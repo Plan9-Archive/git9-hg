@@ -12,8 +12,7 @@ struct Buf {
 
 static int readpacked(Biobuf *, Object *);
 
-Avltree *objcache;
-int nobjcache;
+Objset objcache;
 
 int
 bappend(void *p, void *src, int len)
@@ -623,18 +622,17 @@ readobject(Hash h)
 	char path[Pathmax];
 	char hbuf[41];
 	Biobuf *f;
-	Object *obj, k;
+	Object *obj;
 	int l, i, n;
 	vlong o;
 	Dir *d;
 
-	k.hash = h;
-	if((obj = (Object*)avllookup(objcache, &k, 0)) != nil)
+	if((obj = osfind(&objcache, h)) != nil)
 		return obj;
 
 	d = nil;
 	obj = emalloc(sizeof(Object));
-	obj->id = ++nobjcache;
+	obj->id = objcache.nobj + 1;
 	obj->hash = h;
 
 	snprint(hbuf, sizeof(hbuf), "%H", h);
@@ -644,7 +642,7 @@ readobject(Hash h)
 			goto error;
 		Bterm(f);
 		parseobject(obj);
-		avlinsert(objcache, obj);
+		osadd(&objcache, obj);
 		return obj;
 	}
 
@@ -680,7 +678,7 @@ readobject(Hash h)
 		goto error;
 	Bterm(f);
 	parseobject(obj);
-	avlinsert(objcache, obj);
+	osadd(&objcache, obj);
 	return obj;
 error:
 	free(d);
@@ -757,7 +755,7 @@ indexpack(char *pack, char *idx, Hash ph)
 			if (readpacked(f, o) == 0){
 				sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
 				parseobject(o);
-				avlinsert(objcache, o);
+				osadd(&objcache, o);
 				valid[i] = 1;
 				n++;
 			}
