@@ -3,7 +3,6 @@
 #include <libsec.h>
 #include <ctype.h>
 #include <flate.h>
-#include <avl.h>
 #include <regexp.h>
 
 typedef struct Hash Hash;
@@ -46,7 +45,6 @@ struct Idxent {
 
 struct Object {
 	/* Cache */
-	Avl;
 	int	id;
 
 	/* Git data */
@@ -133,7 +131,7 @@ struct Objset {
 	(((c) != '\n') && isspace(c))
 
 extern Reprog *authorpat;
-extern Avltree *objcache;
+extern Objset objcache;
 extern Hash Zhash;
 
 #pragma varargck type "H" Hash
@@ -161,6 +159,7 @@ int idxwrite(int, Idxent *, long);
 void osinit(Objset *);
 void osadd(Objset *, Object *);
 int oshas(Objset *, Object *);
+Object *osfind(Objset *, Hash);
 
 /* util functions */
 void *emalloc(ulong);

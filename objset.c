@@ -50,13 +50,19 @@ osadd(Objset *s, Object *o)
 	}
 }
 
-int
-oshas(Objset *s, Object *o)
+Object*
+osfind(Objset *s, Hash h)
 {
 	u32int probe;
 
-	for(probe = GETBE32(o->hash.h) % s->sz; s->obj[probe]; probe = (probe + 1) % s->sz)
-		if(hasheq(&s->obj[probe]->hash, &o->hash))
-			return 1; 
+	for(probe = GETBE32(h.h) % s->sz; s->obj[probe]; probe = (probe + 1) % s->sz)
+		if(hasheq(&s->obj[probe]->hash, &h))
+			return s->obj[probe]; 
 	return 0;
+}
+
+int
+oshas(Objset *s, Object *o)
+{
+	return osfind(s, o->hash) != nil;
 }
