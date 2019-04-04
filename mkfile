@@ -30,11 +30,15 @@ HFILES=git.h
 # Override install target to install rc.
 install:V:
 	mkdir -p /$objtype/bin/git
-	mkdir -p /rc/bin/git
 	for (i in $TARG)
 		mk $MKFLAGS $i.install
 	for (i in $RC)
 		mk $MKFLAGS $i.rcinstall
+	mk $MKFLAGS /lib/git/template
 
-%.rcinstall:
-	cp $stem /rc/bin/git/$stem
+%.rcinstall:V:
+	cp $stem $BIN/$stem
+
+/lib/git/template: template
+	mkdir -p /lib/git/template
+	dircp template /lib/git/template
