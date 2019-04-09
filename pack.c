@@ -529,6 +529,7 @@ parsetree(Object *o)
 		o->ent = realloc(o->ent, ++o->nent * sizeof(Dirent));
 		t = &o->ent[o->nent - 1];
 		m = strtol(buf, nil, 8);
+		/* FIXME: symlinks and other BS */
 		t->mode = m & 0777 | ((m & 0040000) ? DMDIR : 0);
 		t->name = p;
 		nn = strlen(p) + 1;
@@ -650,7 +651,7 @@ hwrite(Biobuf *b, void *buf, int len, DigestState **st)
 }
 
 int
-indexpack(char *pack, char *idx, Hash *ph)
+indexpack(char *pack, char *idx, Hash ph)
 {
 	char hdr[4*3], buf[8];
 	int nobj, nvalid, nbig, n, i, step;
@@ -658,6 +659,7 @@ indexpack(char *pack, char *idx, Hash *ph)
 	DigestState *st;
 	char *valid;
 	Biobuf *f;
+	Hash h;
 	int c;
 
 	if((f = Bopen(pack, OREAD)) == nil)
@@ -754,9 +756,10 @@ indexpack(char *pack, char *idx, Hash *ph)
 			hwrite(f, buf, 8, &st);
 		}
 	}
-	hwrite(f, ph->h, sizeof(ph->h), &st);
-	sha1(nil, 0, ph->h, st);
-	Bwrite(f, ph->h, sizeof(ph->h));
+	hwrite(f, ph.h, sizeof(ph.h), &st);
+	sha1(nil, 0, h.h, st);
+	Bwrite(f, h.h, sizeof(h.h));
+
 	free(objects);
 	free(valid);
 	Bterm(f);
