@@ -8,6 +8,7 @@
 
 typedef struct Hash Hash;
 typedef struct Object Object;
+typedef struct Objset Objset;
 typedef struct Pack Pack;
 typedef struct Buf Buf;
 typedef struct Dirent Dirent;
@@ -46,33 +47,40 @@ struct Dirent {
 struct Object {
 	/* Cache */
 	Avl;
-	int id;
+	int	id;
 
 	/* Git data */
-	Hash hash;
-	Type type;
-	vlong size; /* excluding header */
-	char *data;
-	char *all;
-	int parsed;
+	Hash	hash;
+	Type	type;
+	vlong	size;	/* excluding header */
+	char	*data;
+	char	*all;
+	int	parsed;
 
 	/* For indexing */
-	vlong off;
+	vlong	off;
 
 	/* Commit */
-	Hash *parent;
-	int nparent;
-	Hash tree;
-	char *author;
-	char *committer;
-	char *msg;
-	int nmsg;
-	vlong ctime;
-	vlong mtime;
+	Hash	*parent;
+	int	nparent;
+	Hash	tree;
+	char	*author;
+	char	*committer;
+	char	*msg;
+	int	nmsg;
+	vlong	ctime;
+	vlong	mtime;
 
 	/* Tree */
-	Dirent *ent;
-	int nent;
+	Dirent	*ent;
+	int	nent;
+};
+
+struct Objset {
+	Hash	*obj;
+	char	*has;
+	int	nobj;
+	int	sz;
 };
 
 #define GETBE32(b)\
@@ -134,6 +142,7 @@ void gitinit(void);
 Object* readobject(Hash);
 void parseobject(Object *);
 int indexpack(char *, char *, Hash);
+int hasheq(Hash *, Hash *);
 
 /* util functions */
 void *emalloc(ulong);

@@ -5,6 +5,12 @@
 Reprog *authorpat;
 Hash Zhash;
 
+int
+hasheq(Hash *a, Hash *b)
+{
+	return memcmp(a->h, b->h, sizeof(a->h)) == 0;
+}
+
 static int
 charval(int c, int *err)
 {
