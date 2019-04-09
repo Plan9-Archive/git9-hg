@@ -11,6 +11,7 @@ TARG=\
 OFILES=\
 	pack.$O\
 	util.$O\
+	objset.$O\
 
 HFILES=git.h
 

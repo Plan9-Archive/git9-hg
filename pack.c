@@ -70,12 +70,6 @@ hashsearch(Hash *hlist, int nent, Hash h)
 	return -1;
 }
 
-int
-hasheq(Hash *a, Hash *b)
-{
-	return memcmp(a->h, b->h, sizeof(a->h)) == 0;
-}
-
 static int
 applydelta(Object *dst, Object *base, char *d, int nd)
 {
