@@ -3,7 +3,6 @@
 BIN=/$objtype/bin/git
 TARG=\
 	fs\
-	show\
 	fetch\
 	send\
 	save\

@@ -133,7 +133,7 @@ void gitinit(void);
 /* object io */
 Object* readobject(Hash);
 void parseobject(Object *);
-int indexpack(char *, char *, Hash *);
+int indexpack(char *, char *, Hash);
 
 /* util functions */
 void *emalloc(ulong);
