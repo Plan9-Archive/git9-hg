@@ -27,7 +27,7 @@ fn clone{
 	
 	cd $local
 	
-	dircp /lib/git/template .git
+	dircp /sys/lib/git/template .git
 	echo '[remote "origin"]' 				>> .git/config
 	echo '	url='$remote					>> .git/config
 	echo '	fetch=+refs/heads/*:refs/remotes/origin/*'	>> .git/config

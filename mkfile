@@ -14,9 +14,9 @@ RC=\
 	checkout\
 	clone\
 	commit\
+	init\
 	log\
 	walk
-
 
 OFILES=\
 	pack.$O\
@@ -34,11 +34,16 @@ install:V:
 		mk $MKFLAGS $i.install
 	for (i in $RC)
 		mk $MKFLAGS $i.rcinstall
-	mk $MKFLAGS /lib/git/template
+	mk $MKFLAGS /sys/lib/git/template
+
+%.c %.h: %.y
+	$YACC $YFLAGS -D1 -d -s $stem $prereq
+	mv $stem.tab.c $stem.c
+	mv $stem.tab.h $stem.h
 
 %.rcinstall:V:
 	cp $stem $BIN/$stem
 
-/lib/git/template: template
-	mkdir -p /lib/git/template
-	dircp template /lib/git/template
+/sys/lib/git/template: template
+	mkdir -p /sys/lib/git/template
+	dircp template /sys/lib/git/template
