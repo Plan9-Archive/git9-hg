@@ -2,11 +2,11 @@
 
 BIN=/$objtype/bin/git
 TARG=\
-	fs\
-	fetch\
-	send\
-	save\
 	conf\
+	fetch\
+	fs\
+	save\
+	send\
 
 RC=\
 	add\
@@ -19,9 +19,9 @@ RC=\
 	walk
 
 OFILES=\
+	objset.$O\
 	pack.$O\
 	util.$O\
-	objset.$O
 
 HFILES=git.h
 
