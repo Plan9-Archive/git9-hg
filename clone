@@ -33,7 +33,7 @@ fn clone{
 	echo '[remote "origin"]' 				>> .git/config
 	echo '	url='$remote					>> .git/config
 	echo '	fetch=+refs/heads/*:refs/remotes/origin/*'	>> .git/config
-	git/fetch $remote | awk '
+	{git/fetch $remote >[2=3] | awk '
 		/^remote/{
 			if($2=="HEAD"){
 				headhash=$3
@@ -60,7 +60,7 @@ fn clone{
 				print headhash > ".git/HEAD"
 			}
 		}
-	'
+	'} |[3] tr '\x0d' '\x0a'
 	if(test -f .git/refs/remotes/origin/master){
 		cp .git/refs/remotes/origin/master .git/refs/heads/master
 		git/fs
