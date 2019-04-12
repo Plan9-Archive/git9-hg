@@ -61,7 +61,6 @@ fn clone{
 			}
 		}
 	'
-	exit fail
 	if(test -f .git/refs/remotes/origin/master){
 		cp .git/refs/remotes/origin/master .git/refs/heads/master
 		git/fs
