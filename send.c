@@ -282,18 +282,25 @@ writeobject(int fd, Object *o, DigestState **st)
 
 	sz = o->size;
 	hdr[0] = o->type << 4;
+	hdr[0] = sz & 0xf;
 	if(sz > (1 << 4))
 		hdr[0] |= 0x80;
 
-	hdr[0] = sz & 0xf;
 	sz >>= 4;
 	for(i = 1; i < sizeof(hdr); i++){
 		hdr[i] = sz & 0x7f;
 		if(sz > 0x7f)
 			hdr[i] |= 0x80;
+		else
+			break;
+		sz >>= 7;
 	}
 
-	if(write(fd, hdr, i) != i)
+	print("hdr: %d: %02x%02x%02x%02x.%02x%02x%02x%02x\n",
+		i,
+		hdr[0], hdr[1], hdr[2], hdr[3],
+		hdr[4], hdr[5], hdr[6], hdr[7]);
+	if(hwrite(fd, hdr, i, st) != i)
 		return -1;
 	if(compress(fd, o->data, o->size, st) == -1)
 		return -1;
