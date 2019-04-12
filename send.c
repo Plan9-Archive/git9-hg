@@ -30,7 +30,7 @@ struct Objq {
 
 int chatty;
 int pushall;
-char *curbranch = "master";
+char curbranch[Npath] = "refs/heads/master";
 
 void
 usage(void)
@@ -389,7 +389,8 @@ sendpack(int fd)
 		if(strncmp(buf, "ERR ", 4) == 0)
 			sysfatal("%s", buf + 4);
 
-		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
+		if(getfields(buf, sp, nelem(sp), 1, " \t\n\r") != 2)
+			sysfatal("invalid ref line %.*s\n", n, buf);
 		if(resolveref(&ours[nref], sp[1]) == -1)
 			continue;
 		if(hparse(&theirs[nref], sp[0]) == -1)
@@ -397,13 +398,14 @@ sendpack(int fd)
 		if(snprint(refnames[nref], sizeof(refnames[nref]), sp[1]) >= sizeof(refnames[i]))
 			sysfatal("overlong ref %s", sp[1]);
 		nref++;
-		print("they have %s: %H\n", refnames[nref], theirs[nref]);
 	}
 
 	updating = 0;
 	for(i = 0; i < nref; i++){
 		if(pushall || strcmp(curbranch, refnames[i]) == 0){
-			n = snprint(buf, sizeof(buf), "update %s %H\r\n", refnames[i], ours[i]);
+			print("%s: %H => %H\n", theirs[i], ours[i], refnames[i]); 
+			n = snprint(buf, sizeof(buf), "%H %H %s\r\n",
+				theirs[i], ours[i], refnames[i]);
 			if(n >= sizeof(buf))
 				sysfatal("overlong update\n");
 			if(writepkt(fd, buf, n) == -1)
@@ -411,9 +413,9 @@ sendpack(int fd)
 			updating = 1;
 		}
 	}
+	flushpkt(fd);
 	if(!updating)
 		sysfatal("nothing to do here\n");
-	flushpkt(fd);
 	return writepack(fd, theirs, nref, ours, nref);
 }
 
@@ -430,6 +432,9 @@ main(int argc, char **argv)
 		break;
 	case 'd':
 		chatty++;
+		break;
+	case 'b':
+		snprint(curbranch, sizeof(curbranch), "refs/%s", EARGF(usage()));
 		break;
 	}ARGEND;
 
