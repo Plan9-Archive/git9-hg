@@ -72,7 +72,6 @@ struct Object {
 
 struct Objset {
 	Object	**obj;
-	char	*has;
 	int	nobj;
 	int	sz;
 };

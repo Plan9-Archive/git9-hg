@@ -217,6 +217,7 @@ pack(Objset *send, Object *o)
 	Object *s;
 	int i;
 
+	print("adding object %H to pack\n", o->hash);
 	osadd(send, o);
 	switch(o->type){
 	case GCommit:
@@ -313,6 +314,7 @@ writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
 	osinit(&send);
 	osinit(&skip);
 	for(i = 0; i < nremote; i++){
+		print("boundary object: %H\n", remote[i]);
 		if((o = readobject(remote[i])) == nil)
 			sysfatal("could not read %H", remote[i]);
 		osadd(&skip, o);
@@ -321,6 +323,7 @@ writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
 	q = nil;
 	e = nil;
 	for(i = 0; i < nlocal; i++){
+		print("root object: %H\n", local[i]);
 		if((o = readobject(local[i])) == nil)
 			sysfatal("could not read object %H", local[i]);
 
@@ -337,7 +340,9 @@ writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
 	for(; q; q = n){
 		o = q->obj;
 		n = q->next;
-
+		
+		if(oshas(&skip, o) || oshas(&send, o))
+			continue;
 		pack(&send, o);
 		for(i = 0; i < o->nparent; i++){
 			if((p = readobject(o->parent[i])) == nil)
@@ -356,14 +361,16 @@ writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
 	if(hwrite(fd, buf, 4, &st) == -1)
 		return -1;
 	for(i = 0; i < send.sz; i++){
-		if(!send.has[i])
+		if(!send.obj[i])
 			continue;
+		print("writing object %H\n", send.obj[i]->hash);
 		if(writeobject(fd, send.obj[i], &st) == -1)
 			return -1;
 	}
 	sha1(nil, 0, h.h, st);
 	if(write(fd, h.h, sizeof(h.h)) == -1)
 		return -1;
+	print("done writing\n");
 	return 0;
 }
 
@@ -403,7 +410,12 @@ sendpack(int fd)
 	updating = 0;
 	for(i = 0; i < nref; i++){
 		if(pushall || strcmp(curbranch, refnames[i]) == 0){
-			print("%s: %H => %H\n", theirs[i], ours[i], refnames[i]); 
+			print("%s: %H => %H\n", refnames[i], theirs[i], ours[i]);
+			if(readobject(theirs[i]) == nil){
+				fprint(2, "remote has diverged: pull and try again\n");
+				updating = 0;
+				break;
+			}
 			n = snprint(buf, sizeof(buf), "%H %H %s\r\n",
 				theirs[i], ours[i], refnames[i]);
 			if(n >= sizeof(buf))
@@ -416,6 +428,7 @@ sendpack(int fd)
 	flushpkt(fd);
 	if(!updating)
 		sysfatal("nothing to do here\n");
+	print("writing pack\n");
 	return writepack(fd, theirs, nref, ours, nref);
 }
 
