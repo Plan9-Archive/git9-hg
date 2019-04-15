@@ -7,6 +7,8 @@ TARG=\
 	fs\
 	save\
 	send\
+	save\
+	conf\
 
 RC=\
 	add\
@@ -35,6 +37,11 @@ install:V:
 	for (i in $RC)
 		mk $MKFLAGS $i.rcinstall
 	mk $MKFLAGS /sys/lib/git/template
+
+%.c %.h: %.y
+	$YACC $YFLAGS -D1 -d -s $stem $prereq
+	mv $stem.tab.c $stem.c
+	mv $stem.tab.h $stem.h
 
 %.c %.h: %.y
 	$YACC $YFLAGS -D1 -d -s $stem $prereq
