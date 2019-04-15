@@ -1,0 +1,92 @@
+#!/bin/rc
+
+rfork en
+
+if(~ $#* 1){
+	remote=$1
+	local=`{basename $1 .git}
+}
+if not if(~ $#* 2){
+	remote=$1
+	local=$2
+}
+if not{
+	echo usage: git/clone remote [local] >[1=2]
+	exit usage
+}
+
+if(test -e $local){
+	echo $local already exists
+	exit exists
+}
+	
+fn clone{
+	mkdir -p $local/.git
+	mkdir -p $local/.git/objects/pack/
+	mkdir -p $local/.git/refs/heads/
+	
+	cd $local
+	
+	dircp /sys/lib/git/template .git
+	echo '[remote "origin"]' 				>> .git/config
+	echo '	url='$remote					>> .git/config
+	echo '	fetch=+refs/heads/*:refs/remotes/origin/*'	>> .git/config
+	{git/fetch $remote >[2=3] | awk '
+		/^remote/{
+			if($2=="HEAD"){
+				headhash=$3
+				headref=""
+			}else{
+				gsub("^refs/heads", "refs/remotes/origin", $2)
+				if($2 == "refs/remotes/origin/master" || $3 == headhash)
+					headref=$2
+				outfile = ".git/" $2
+				system("mkdir -p `{basename -d "outfile"}")
+				print $3 > outfile
+				close(outfile)
+			}
+		}
+		END{
+			if(headref != ""){
+				remote = headref
+				gsub("^refs/remotes/origin", "refs/heads", headref)
+				system("mkdir -p `{basename -d "headref"}");
+				system("cp .git/" remote " .git/" headref)
+				print "ref: " headref > ".git/HEAD"
+			}else{
+				print "warning: detached head "headhash > "/fd/2"
+				print headhash > ".git/HEAD"
+			}
+		}
+	'} |[3] tr '\x0d' '\x0a'
+	tree=/mnt/git/branch/heads/master/tree
+	echo checking out repository...
+	if(test -f .git/refs/remotes/origin/master){
+		cp .git/refs/remotes/origin/master .git/refs/heads/master
+		git/fs
+		dircp $tree .
+		for(f in `{du -a $tree | awk '{print $2}'}){
+			rel=`{sed 's@^'$tree'/*@@' <{echo $f}}
+			if(~ $#rel 0)
+				rel=''
+			idx=.git/index9/tracked/$rel
+			mkdir -p `{basename -d $idx}
+			touch $idx
+		}
+	}
+	if not{
+		echo no master branch >[1=2]
+		echo check out your code with git/checkout >[1=2]
+	}
+}
+
+@{clone}
+st=$status
+if(~ $st ''){
+	echo done.
+}
+if not{
+	echo clone failed: $st >[2=1]
+	echo cleaning up $local >[2=1]
+	rm -rf $local
+}

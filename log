@@ -1,0 +1,38 @@
+#!/bin/rc -e
+
+rfork en
+
+base=/mnt/git/object/
+branch=$1
+if(~ $1 '')
+	branch='master'
+if(! test -e /mnt/git/ctl)
+	git/fs
+
+commits=($branch)
+if(test -e /mnt/git/branch/heads/$branch)
+	commits=`{cat /mnt/git/branch/heads/$branch/hash}
+if not if(test -e /mnt/git/branch/$branch)
+	commits=`{cat /mnt/git/branch/$branch/hash}
+if not if(test -e /mnt/git/object/$branch/hash)
+	commits=`{cat /mnt/git/object/$branch/hash}
+if not{
+	echo 'unknown commit '$branch >[2=1]
+	exit 'unknown commit '$branch
+}
+
+while(! ~$#commits 0){
+	c=$commits(1)
+	
+	echo 'Hash:	' `{cat $base/$c/hash}
+	echo 'Author:	' `{cat $base/$c/author}
+	cat $base/$c/msg | sed 's/^/	/g'
+	echo ''
+
+
+	commits=($commits(2-) `{cat $base/$c/parent})
+	if(! ~ $#commits 0)
+		commits=`{mtime $base^$commits |
+			sort -rn |
+			awk -F/ '{print $NF}'}
+}
