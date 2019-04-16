@@ -1,6 +1,6 @@
 #include <u.h>
 #include <libc.h>
-#include <pool.h>
+#include <ctype.h>
 
 #include "git.h"
 
@@ -310,7 +310,9 @@ fetchpack(int fd, char *packtmp)
 
 	while(1){
 		n = readn(fd, buf, sizeof buf);
-		if(n > 20){
+		if(n == -1){
+			sysfatal("could not fetch packfile: %r");
+		}else if(n > 20){
 			st = sha1(tail, ntail, nil, st);
 			st = sha1((uchar*)buf, n - 20, nil, st);
 			memcpy(tail, buf + n - 20, 20);
@@ -319,10 +321,9 @@ fetchpack(int fd, char *packtmp)
 			st = sha1(tail, n, nil, st);
 			break;
 		}
+
 		if(n == 0)
 			break;
-		if(n == -1)
-			sysfatal("could not fetch packfile: %r");
 		write(pfd, buf, n);
 
 	}
