@@ -27,10 +27,8 @@ osadd(Objset *s, Object *o)
 
 	probe = GETBE32(o->hash.h) % s->sz;
 	while(s->obj[probe]){
-		if(hasheq(&s->obj[probe]->hash, &o->hash)){
-			print("present\n");
+		if(hasheq(&s->obj[probe]->hash, &o->hash))
 			return;
-		}
 		probe = (probe + 1) % s->sz;
 	}
 	assert(s->obj[probe] == nil);
