@@ -64,7 +64,7 @@ fn clone{
 	if(test -f .git/refs/remotes/origin/master){
 		cp .git/refs/remotes/origin/master .git/refs/heads/master
 		git/fs
-		dircp $tree .
+		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0}
 		for(f in `{du -a $tree | awk '{print $2}'}){
 			rel=`{sed 's@^'$tree'/*@@' <{echo $f}}
 			if(~ $#rel 0)
