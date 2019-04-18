@@ -55,17 +55,14 @@ will mirror the current state of the repository.
 Installation
 ------------
 
-Install with `mk install`.  The implementation is mixed c and rc,
-so after installing you need to union /rc/bin/git and $objtype/bin/git`
-yourself: 'bind -a /rc/bin/git /bin/git' will suffice.
-
+Install with `mk install`.
 
 Examples
 --------
 
 Some usage examples:
 
-	git/clone git://git.eigenstate.org/git/ori/mc.git
+	git/clone git://git.eigenstate.org/ori/mc.git
 	git/log
 	cd subdir/name
 	git/add foo.c

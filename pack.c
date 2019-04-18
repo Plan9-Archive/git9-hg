@@ -212,7 +212,6 @@ readrdelta(Biobuf *f, Object *o, int nd)
 		goto error;
 	if((n = decompress(&d, f, nil)) == -1)
 		goto error;
-	assert(n == nd);
 	if((b = readobject(h)) == nil)
 		goto error;
 	if(applydelta(o, b, d, n) == -1)
@@ -275,8 +274,10 @@ readpacked(Biobuf *f, Object *o)
 	l = c & 0xf;
 	s = 4;
 	t = (c >> 4) & 0x7;
-	if(!t)
-		print("unknown type for byte %x\n", c);
+	if(!t){
+		werrstr("unknown type for byte %x\n", c);
+		return -1;
+	}
 	while(c & 0x80){
 		if((c = Bgetc(f)) == -1)
 			return -1;
@@ -285,7 +286,7 @@ readpacked(Biobuf *f, Object *o)
 	}
 
 	switch(t){
-	case GNone:
+	default:
 		werrstr("invalid object at %lld", Boffset(f));
 		return -1;
 	case GCommit:
@@ -293,9 +294,7 @@ readpacked(Biobuf *f, Object *o)
 	case GTag:
 	case GBlob:
 		b.sz = 64 + l;
-		b.data = malloc(b.sz);
-		if(!b.data)
-			return -1;
+		b.data = emalloc(b.sz);
 		n = snprint(b.data, 64, "%T %lld", t, l) + 1;
 		b.len = n;
 		if(bdecompress(&b, f, nil) == -1)
@@ -312,7 +311,7 @@ readpacked(Biobuf *f, Object *o)
 	case GRdelta:
 		if(readrdelta(f, o, l) == -1)
 			return -1;
-		break;	
+		break;
 	}
 	return 0;
 }
@@ -353,11 +352,11 @@ readloose(Biobuf *f, Object *o)
 	}
 	sz = strtol(s, &e, 0);
 	if(e == s || *e++ != 0){
-		print("malformed object header");
+		werrstr("malformed object header");
 		goto error;
 	}
 	if(sz != n - (e - d)){
-		print("mismatched sizes");
+		werrstr("mismatched sizes");
 		goto error;
 	}
 	o->size = sz;
