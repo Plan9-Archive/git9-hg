@@ -212,6 +212,8 @@ readrdelta(Biobuf *f, Object *o, int nd)
 		goto error;
 	if((n = decompress(&d, f, nil)) == -1)
 		goto error;
+	if(d == nil)
+		goto error;
 	if((b = readobject(h)) == nil)
 		goto error;
 	if(applydelta(o, b, d, n) == -1)
