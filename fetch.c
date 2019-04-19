@@ -232,16 +232,48 @@ rename(char *pack, char *idx, Hash h)
 }
 
 int
-fetchpack(int fd, char *packtmp)
+checkhash(int fd, vlong sz, Hash *hcomp)
 {
 	DigestState *st;
-	uchar tail[20];
+	Hash hexpect;
+	char buf[65536];
+	vlong n, r;
+	int nr;
+	
+	if(sz < 28){
+		werrstr("undersize packfile");
+		return -1;
+	}
+
+	st = nil;
+	n = 0;
+	while(n != sz - 20){
+		nr = sizeof(buf);
+		if(sz - n - 20 < sizeof(buf))
+			nr = sz - n - 20;
+		if((r = readn(fd, buf, nr)) != nr)
+			return -1;
+		st = sha1((uchar*)buf, nr, nil, st);
+		n += r;
+	}
+	sha1(nil, 0, hcomp->h, st);
+	if(readn(fd, hexpect.h, sizeof(hexpect.h)) != sizeof(hexpect.h))
+		sysfatal("truncated packfile");
+	if(!hasheq(hcomp, &hexpect))
+		return -1;
+	return 0;
+}
+
+int
+fetchpack(int fd, char *packtmp)
+{
 	char buf[65536];
 	char idxtmp[256];
 	char *sp[3];
 	Hash h, *have, *want;
 	int nref, refsz;
-	int i, n, req, pfd, ntail;
+	int i, n, req, pfd;
+	vlong packsz;
 
 	nref = 0;
 	refsz = 16;
@@ -304,30 +336,20 @@ fetchpack(int fd, char *packtmp)
 	if(pfd == -1)
 		sysfatal("could not open pack %s", packtmp);
 	print("fetching...\n");
-	st = nil;
-	ntail = 0;
 
+	packsz = 0;
 	while(1){
 		n = readn(fd, buf, sizeof buf);
-		if(n == -1){
-			sysfatal("could not fetch packfile: %r");
-		}else if(n > 20){
-			st = sha1(tail, ntail, nil, st);
-			st = sha1((uchar*)buf, n - 20, nil, st);
-			memcpy(tail, buf + n - 20, 20);
-			ntail = 20;
-		}else{
-			st = sha1(tail, n, nil, st);
-			break;
-		}
-
 		if(n == 0)
 			break;
-		write(pfd, buf, n);
-
+		if(n == -1 || write(pfd, buf, n) != n)
+			sysfatal("could not fetch packfile: %r");
+		packsz += n;
 	}
-	sha1(nil, 0, h.h, st);
-	print("hash: %H\n", h);
+	if(seek(pfd, 0, 0) == -1)
+		sysfatal("packfile seek: %r");
+	if(checkhash(pfd, packsz, &h) == -1)
+		sysfatal("corrupt packfile: %r");
 	close(pfd);
 	n = strlen(packtmp) - strlen(".tmp");
 	memcpy(idxtmp, packtmp, n);
