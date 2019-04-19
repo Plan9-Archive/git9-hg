@@ -1,4 +1,4 @@
-#!/bin/rc -ex
+#!/bin/rc
 
 rfork en
 
@@ -6,9 +6,8 @@ fn update{
 	branch=$1
 	url=$2
 	dir=$3
-	git/fetch -s $1 $2 
 	
-	{git/fetch -s $1 $2 >[2=3] | awk '
+	{git/fetch -s $branch $url >[2=3] | awk '
 		/^remote/{
 			if($2=="HEAD")
 				next
@@ -25,7 +24,7 @@ fn update{
 fn usage{
 	echo 'usage: $argv0 [-a] [-u upstream] [-b branch]' >[1=2]
 	echo '	-u up:	pull from upstream "up" (default: origin)' >[1=2]
-	echo '	-f:	fetch without updating working copy >[1=2]
+	echo '	-f:	fetch without updating working copy' >[1=2]
 	exit usage
 }
 

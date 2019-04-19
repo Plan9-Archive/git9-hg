@@ -9,6 +9,7 @@ TARG=\
 	send\
 	save\
 	conf\
+	index
 
 RC=\
 	add\
@@ -18,6 +19,7 @@ RC=\
 	commit\
 	init\
 	log\
+	pull\
 	walk
 
 OFILES=\
