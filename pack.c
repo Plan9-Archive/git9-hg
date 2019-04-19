@@ -212,7 +212,7 @@ readrdelta(Biobuf *f, Object *o, int nd)
 		goto error;
 	if((n = decompress(&d, f, nil)) == -1)
 		goto error;
-	if(d == nil)
+	if(d == nil || n != nd)
 		goto error;
 	if((b = readobject(h)) == nil)
 		goto error;
@@ -225,12 +225,12 @@ error:
 }
 
 static int
-readodelta(Biobuf *f, Object *o, vlong n, vlong p)
+readodelta(Biobuf *f, Object *o, vlong nd, vlong p)
 {
 	Object b;
 	char *d;
 	vlong r;
-	int c;
+	int c, n;
 
 	r = 0;
 	d = nil;
@@ -246,13 +246,16 @@ readodelta(Biobuf *f, Object *o, vlong n, vlong p)
 
 	if(p - r < 0)
 		goto error;
-	if(decompress(&d, f, nil) == -1)
+	if((n = decompress(&d, f, nil)) == -1)
 		goto error;
+	if(d == nil || n != nd)
+		goto error;
+	print("offset delta at %lld", p - r);
 	if(Bseek(f, p - r, 0) == -1)
 		goto error;
 	if(readpacked(f, &b) == -1)
 		goto error;
-	if(applydelta(o, &b, d, n) == -1)
+	if(applydelta(o, &b, d, nd) == -1)
 		goto error;
 	free(d);
 	return 0;
@@ -296,6 +299,7 @@ readpacked(Biobuf *f, Object *o)
 	case GTag:
 	case GBlob:
 		b.sz = 64 + l;
+
 		b.data = emalloc(b.sz);
 		n = snprint(b.data, 64, "%T %lld", t, l) + 1;
 		b.len = n;
@@ -763,14 +767,13 @@ indexpack(char *pack, char *idx, Hash ph)
 		}
 		fprint(2, "\n");
 		if(n == nvalid){
-			print("fix point reached too early: %d/%d: %r", nvalid, nobj);
+			sysfatal("fix point reached too early: %d/%d: %r", nvalid, nobj);
 			goto error;
 		}
 		nvalid = n;
 	}
 	Bterm(f);
 
-	print("writing index\n");
 	st = nil;
 	qsort(objects, nobj, sizeof(Object*), objcmp);
 	if((f = Bopen(idx, OWRITE)) == nil)

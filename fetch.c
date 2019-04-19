@@ -18,7 +18,7 @@ char *clonesrc;
 void
 usage(void)
 {
-	print("git/fetch remote [reponame]\n");
+	fprint(2, "git/fetch remote [reponame]\n");
 	exits("usage");
 }
 
@@ -124,7 +124,7 @@ dialssh(char *host, char *, char *path)
 {
 	int pid, pfd[2];
 
-	print("dialing via ssh %s...\n", host);
+	fprint(2, "dialing %s...\n", host);
 	if(pipe(pfd) == -1)
 		sysfatal("unable to open pipe: %r\n");
 	pid = fork();
@@ -149,15 +149,15 @@ dialgit(char *host, char *port, char *path)
 	int fd, l;
 
 	ds = netmkaddr(host, "tcp", port);
-	print("dialing %s...\n", ds);
+	fprint(2, "dialing %s...\n", ds);
 	fd = dial(ds, nil, nil, nil);
 	if(fd == -1)
 		return -1;
 	l = 0;
 	l += snprint(cmd, sizeof(cmd), "git-upload-pack %s", path) + 1;
-	l += snprint(cmd + l, sizeof(cmd) - l, "host=%s", host);
+	l += snprint(cmd + l, sizeof(cmd) - l, "host=%s ofs-delta", host);
 	if(writepkt(fd, cmd, l + 1) == -1){
-		print("failed to write message\n");
+		fprint(2, "failed to write message\n");
 		close(fd);
 		return -1;
 	}
@@ -221,11 +221,9 @@ rename(char *pack, char *idx, Hash h)
 	nulldir(&st);
 	st.name = name;
 	snprint(name, sizeof(name), "%H.pack", h);
-	print("rename %s => %s\n", pack, st.name);
 	if(dirwstat(pack, &st) == -1)
 		return -1;
 	snprint(name, sizeof(name), "%H.idx", h);
-	print("rename %s => %s\n", idx, st.name);
 	if(dirwstat(idx, &st) == -1)
 		return -1;
 	return 0;
@@ -322,7 +320,7 @@ fetchpack(int fd, char *packtmp)
 			sysfatal("could not send have for %H", have[i]);
 	}
 	if(!req){
-		print("up to date\n");
+		fprint(2, "up to date\n");
 		flushpkt(fd);
 	}
 	n = snprint(buf, sizeof(buf), "done\n");
@@ -331,11 +329,10 @@ fetchpack(int fd, char *packtmp)
 	if((n = readpkt(fd, buf, sizeof(buf))) == -1)
 		sysfatal("lost connection read");
 	buf[n] = 0;
-	print("last msg: %s\n", buf);
 	pfd = create(packtmp, ORDWR, 0644);
 	if(pfd == -1)
 		sysfatal("could not open pack %s", packtmp);
-	print("fetching...\n");
+	fprint(2, "fetching...\n");
 
 	packsz = 0;
 	while(1){
