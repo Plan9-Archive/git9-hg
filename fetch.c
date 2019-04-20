@@ -257,8 +257,10 @@ checkhash(int fd, vlong sz, Hash *hcomp)
 	sha1(nil, 0, hcomp->h, st);
 	if(readn(fd, hexpect.h, sizeof(hexpect.h)) != sizeof(hexpect.h))
 		sysfatal("truncated packfile");
-	if(!hasheq(hcomp, &hexpect))
+	if(!hasheq(hcomp, &hexpect)){
+		werrstr("bad hash: %H != %H", *hcomp, hexpect);
 		return -1;
+	}
 	return 0;
 }
 
