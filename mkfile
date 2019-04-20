@@ -9,7 +9,6 @@ TARG=\
 	send\
 	save\
 	conf\
-	index
 
 RC=\
 	add\
