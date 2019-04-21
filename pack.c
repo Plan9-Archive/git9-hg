@@ -244,8 +244,10 @@ readodelta(Biobuf *f, Object *o, vlong nd, vlong p)
 		r <<= 7;
 	}while(c & 0x80);
 
-	if(p - r < 0)
+	if(r > p){
+		werrstr("junk offset -%lld (from %lld)", r, p);
 		goto error;
+	}
 	if((n = decompress(&d, f, nil)) == -1)
 		goto error;
 	if(d == nil || n != nd)
