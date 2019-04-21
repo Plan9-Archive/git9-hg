@@ -10,9 +10,97 @@ struct Buf {
 	char *data;
 };
 
-static int readpacked(Biobuf *, Object *);
+static int	readpacked(Biobuf *, Object *, int);
+static Object	*readidxobject(Biobuf *, Hash, int);
 
 Objset objcache;
+Object *lruhead;
+Object *lrutail;
+int	ncache;
+
+void
+clearobject(Object *o)
+{
+	if(!o || o->flag & Cpin)
+		return;
+
+	assert((o->flag & Ccache) == 0);
+	assert(o->flag & Cvalid);
+	free(o->all);
+	free(o->parent);
+	free(o->author);
+	free(o->committer);
+	free(o->ent);
+
+	o->ent = nil;
+	o->all = nil;
+	o->data = nil;
+	o->parent = nil;
+	o->author = nil;
+	o->committer = nil;
+
+	o->flag &= ~Cvalid;
+}
+
+void
+unpinobject(Object *o)
+{
+	if(!o)
+		return;
+	o->flag &= ~Cpin;
+	if(!(o->flag & Ccache))
+		clearobject(o);
+}
+
+Object*
+pinobject(Object *o)
+{
+	o->flag |= Cpin;
+	return o;
+}
+
+void
+cache(Object *o)
+{
+	Object *p;
+
+	if(o == lruhead)
+		return;
+	if(o == lrutail)
+		lrutail = lrutail->prev;
+	if(!(o->flag & Cexist)){
+		osadd(&objcache, o);
+		o->flag |= Cexist;
+	}
+	if(o->prev)
+		o->prev->next = o->next;
+	if(o->next)
+		o->next->prev = o->prev;
+	if(lrutail == o){
+		lrutail = o->prev;
+		lrutail->next = nil;
+	}else if(!lrutail)
+		lrutail = o;
+	if(lruhead)
+		lruhead->prev = o;
+	o->next = lruhead;
+	o->prev = nil;
+	lruhead = o;
+
+	if(!(o->flag & Ccache))
+		ncache++;
+	o->flag |= Ccache;
+	while(ncache > Cachemax){
+		p = lrutail;
+		lrutail = p->prev;
+		lrutail->next = nil;
+		p->flag &= ~Ccache;
+		p->prev = nil;
+		p->next = nil;
+		clearobject(p);
+		ncache--;
+	}		
+}
 
 int
 bappend(void *p, void *src, int len)
@@ -198,7 +286,7 @@ applydelta(Object *dst, Object *base, char *d, int nd)
 }
 
 static int
-readrdelta(Biobuf *f, Object *o, int nd)
+readrdelta(Biobuf *f, Object *o, int nd, int flag)
 {
 	Object *b;
 	Hash h;
@@ -214,7 +302,7 @@ readrdelta(Biobuf *f, Object *o, int nd)
 		goto error;
 	if(d == nil || n != nd)
 		goto error;
-	if((b = readobject(h)) == nil)
+	if((b = readidxobject(f, h, flag)) == nil)
 		goto error;
 	if(applydelta(o, b, d, n) == -1)
 		goto error;
@@ -225,7 +313,7 @@ error:
 }
 
 static int
-readodelta(Biobuf *f, Object *o, vlong nd, vlong p)
+readodelta(Biobuf *f, Object *o, vlong nd, vlong p, int flag)
 {
 	Object b;
 	char *d;
@@ -255,7 +343,7 @@ readodelta(Biobuf *f, Object *o, vlong nd, vlong p)
 	print("offset delta at %lld", p - r);
 	if(Bseek(f, p - r, 0) == -1)
 		goto error;
-	if(readpacked(f, &b) == -1)
+	if(readpacked(f, &b, flag) == -1)
 		goto error;
 	if(applydelta(o, &b, d, nd) == -1)
 		goto error;
@@ -267,7 +355,7 @@ error:
 }
 
 static int
-readpacked(Biobuf *f, Object *o)
+readpacked(Biobuf *f, Object *o, int flag)
 {
 	int c, s, n;
 	vlong l, p;
@@ -313,19 +401,20 @@ readpacked(Biobuf *f, Object *o)
 		o->size = b.len - n;
 		break;
 	case GOdelta:
-		if(readodelta(f, o, l, p) == -1)
+		if(readodelta(f, o, l, p, flag) == -1)
 			return -1;
 		break;
 	case GRdelta:
-		if(readrdelta(f, o, l) == -1)
+		if(readrdelta(f, o, l, flag) == -1)
 			return -1;
 		break;
 	}
+	o->flag |= Cvalid|flag;
 	return 0;
 }
 
 static int
-readloose(Biobuf *f, Object *o)
+readloose(Biobuf *f, Object *o, int flag)
 {
 	struct { char *tag; int type; } *p, types[] = {
 		{"blob", GBlob},
@@ -370,6 +459,7 @@ readloose(Biobuf *f, Object *o)
 	o->size = sz;
 	o->data = e;
 	o->all = d;
+	o->flag |= Cvalid|flag;
 	return 0;
 
 error:
@@ -623,8 +713,8 @@ parseobject(Object *o)
 	o->parsed = 1;
 }
 
-Object*
-readobject(Hash h)
+static Object*
+readidxobject(Biobuf *idx, Hash h, int flag)
 {
 	char path[Pathmax];
 	char hbuf[41];
@@ -634,8 +724,23 @@ readobject(Hash h)
 	vlong o;
 	Dir *d;
 
-	if((obj = osfind(&objcache, h)) != nil)
-		return obj;
+	USED(idx);
+	if((obj = osfind(&objcache, h)) != nil){
+		if(obj->flag & Cvalid)
+			return obj;
+		if(obj->flag & Cidx){
+			assert(idx != nil);
+			o = Boffset(idx);
+			if(Bseek(idx, obj->off, 0) == -1)
+				sysfatal("could not seek to object offset");
+			if(readpacked(idx, obj, flag) == -1)
+				sysfatal("could not reload object %H", obj->hash);
+			if(Bseek(idx, o, 0) == -1)
+				sysfatal("could not restore offset\n");
+			cache(obj);
+			return obj;
+		}
+	}
 
 	d = nil;
 	obj = emalloc(sizeof(Object));
@@ -645,11 +750,11 @@ readobject(Hash h)
 	snprint(hbuf, sizeof(hbuf), "%H", h);
 	snprint(path, sizeof(path), ".git/objects/%c%c/%s", hbuf[0], hbuf[1], hbuf + 2);
 	if((f = Bopen(path, OREAD)) != nil){
-		if(readloose(f, obj) == -1)
+		if(readloose(f, obj, flag) == -1)
 			goto error;
 		Bterm(f);
 		parseobject(obj);
-		osadd(&objcache, obj);
+		cache(obj);
 		return obj;
 	}
 
@@ -681,16 +786,26 @@ readobject(Hash h)
 		goto error;
 	if(Bseek(f, o, 0) == -1)
 		goto error;
-	if(readpacked(f, obj) == -1)
+	if(readpacked(f, obj, flag) == -1)
 		goto error;
 	Bterm(f);
 	parseobject(obj);
-	osadd(&objcache, obj);
+	cache(obj);
 	return obj;
 error:
 	free(d);
 	free(obj);
 	return nil;
+}
+
+Object*
+readobject(Hash h)
+{
+	Object *o;
+
+	o = readidxobject(nil, h, 0);
+	pinobject(o);
+	return o;
 }
 
 int
@@ -759,10 +874,10 @@ indexpack(char *pack, char *idx, Hash ph)
 				o->off = Boffset(f);
 				objects[i] = o;
 			}
-			if (readpacked(f, o) == 0){
+			if (readpacked(f, o, Cidx) == 0){
 				sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
 				parseobject(o);
-				osadd(&objcache, o);
+				cache(o);
 				valid[i] = 1;
 				n++;
 			}

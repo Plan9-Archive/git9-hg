@@ -14,6 +14,8 @@ typedef struct Dirent Dirent;
 typedef struct Idxent Idxent;
 
 enum {
+	/* 10k objects should be enough */
+	Cachemax=10*1024,
 	Pathmax=512,
 	Hashsz=20,
 };
@@ -28,6 +30,14 @@ typedef enum Type {
 	GRdelta	= 7,
 } Type;
 
+enum {
+	Cpin	= 1 << 0,
+	Cidx	= 1 << 1,
+	Cvalid	= 1 << 2,
+	Ccache	= 1 << 3,
+	Cexist	= 1 << 4,
+};
+
 struct Hash {
 	uchar h[20];
 };
@@ -38,14 +48,12 @@ struct Dirent {
 	Hash h;
 };
 
-struct Idxent {
-	Dir;
-	Hash h;
-};
-
 struct Object {
 	/* Cache */
 	int	id;
+	int	flag;
+	Object	*next;
+	Object	*prev;
 
 	/* Git data */
 	Hash	hash;
@@ -146,28 +154,26 @@ int Qfmt(Fmt*);
 void gitinit(void);
 
 /* object io */
-Object* readobject(Hash);
-void parseobject(Object *);
-int indexpack(char *, char *, Hash);
-int hasheq(Hash *, Hash *);
-
-/* index */
-long idxread(char *, char *, Idxent **);
-int idxwrite(int, Idxent *, long);
+Object	*readobject(Hash);
+void	parseobject(Object *);
+int	indexpack(char *, char *, Hash);
+int	hasheq(Hash *, Hash *);
+Object	*pinobject(Object *);
+void	unpinobject(Object *);
 
 /* object sets */
-void osinit(Objset *);
-void osadd(Objset *, Object *);
-int oshas(Objset *, Object *);
-Object *osfind(Objset *, Hash);
+void	osinit(Objset *);
+void	osadd(Objset *, Object *);
+int	oshas(Objset *, Object *);
+Object	*osfind(Objset *, Hash);
 
 /* util functions */
-void *emalloc(ulong);
-void *erealloc(void *, ulong);
-char *estrdup(char *);
-int slurpdir(char *, Dir **);
-int hparse(Hash *, char *);
-int hassuffix(char *, char *);
-int swapsuffix(char *, int, char *, char *, char *);
-void die(char *, ...);
+void	*emalloc(ulong);
+void	*erealloc(void *, ulong);
+char	*estrdup(char *);
+int	slurpdir(char *, Dir **);
+int	hparse(Hash *, char *);
+int	hassuffix(char *, char *);
+int	swapsuffix(char *, int, char *, char *, char *);
+void	die(char *, ...);
 
