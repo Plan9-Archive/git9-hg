@@ -658,8 +658,12 @@ gitdestroyfid(Fid *f)
 
 	if((aux = f->aux) == nil)
 		return;
-	/* Olsinit frees the contents of the ols */
+	/* 
+	 * olsinit frees the contents of ols, so we
+	 * can abuse it to reset the thing.
+	 */
 	olsinit(aux->ols);
+	unpinobject(aux->obj);
 	free(aux->refpath);
 	free(aux->ols);
 	free(aux);
