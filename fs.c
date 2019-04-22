@@ -138,10 +138,20 @@ branchgen(int i, Dir *d, void *p)
 	}
 }
 
-static void
-gitcreate(Req *r)
+/* FIXME: walk to the appropriate submodule.. */
+static Object*
+gitlink(Dirent *e)
 {
-	respond(r, "permission denied");
+	Object *m;
+
+	m = emalloc(sizeof(Object));
+	m->hash = e->h;
+	m->type = GTree;
+	m->nent = 0;
+	m->flag |= Cvalid;
+	m->off = -1;
+	cache(m);
+	return m;
 }
 
 static int
@@ -153,9 +163,11 @@ gtreegen(int i, Dir *d, void *p)
 	aux = p;
 	if(i >= aux->obj->nent)
 		return -1;
-	
 	if((o = readobject(aux->obj->ent[i].h)) == nil)
-		die("could not read object %H", aux->obj->ent[i].h);
+		if(aux->obj->ent[i].gitlink)
+			o = gitlink(&aux->obj->ent[i]);
+		else
+			die("could not read object %H: %r", aux->obj->ent[i].h, aux->obj->hash);
 	d->qid.vers = 0;
 	d->qid.type = o->type == GTree ? QTDIR : 0;
 	d->qid.path = QPATH(o->id, aux->qdir);

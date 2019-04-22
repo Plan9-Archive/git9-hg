@@ -44,6 +44,7 @@ struct Hash {
 
 struct Dirent {
 	char *name;
+	int gitlink;
 	int mode;
 	Hash h;
 };
@@ -55,16 +56,19 @@ struct Object {
 	Object	*next;
 	Object	*prev;
 
+	/* For indexing */
+	vlong	off;
+
 	/* Git data */
 	Hash	hash;
 	Type	type;
-	vlong	size;	/* excluding header */
-	char	*data;
-	char	*all;
-	int	parsed;
 
-	/* For indexing */
-	vlong	off;
+	/* Everything below here gets cleared */
+	char	*all;
+	char	*data;
+	/* size excludes header */
+	vlong	size;
+	int	parsed;
 
 	/* Commit */
 	Hash	*parent;
@@ -160,6 +164,7 @@ int	indexpack(char *, char *, Hash);
 int	hasheq(Hash *, Hash *);
 Object	*pinobject(Object *);
 void	unpinobject(Object *);
+void	cache(Object *);
 
 /* object sets */
 void	osinit(Objset *);
