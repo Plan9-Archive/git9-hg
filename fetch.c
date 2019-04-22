@@ -156,8 +156,8 @@ dialgit(char *host, char *port, char *path)
 		return -1;
 	l = 0;
 	l += snprint(cmd, sizeof(cmd), "git-upload-pack %s", path) + 1;
-	l += snprint(cmd + l, sizeof(cmd) - l, "host=%s ofs-delta", host);
-	if(writepkt(fd, cmd, l + 1) == -1){
+	l += snprint(cmd + l, sizeof(cmd) - l, "host=%s", host) + 1;
+	if(writepkt(fd, cmd, l) == -1){
 		fprint(2, "failed to write message\n");
 		close(fd);
 		return -1;
