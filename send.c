@@ -41,7 +41,7 @@ char *curbranch = "refs/heads/master";
 void
 usage(void)
 {
-	print("git/send remote [reponame]\n");
+	fprint(2, "usage: %s remote [reponame]\n", argv0);
 	exits("usage");
 }
 
@@ -159,7 +159,7 @@ dialssh(char *host, char *, char *path)
 
 	print("dialing via ssh %s...\n", host);
 	if(pipe(pfd) == -1)
-		sysfatal("unable to open pipe: %r\n");
+		sysfatal("unable to open pipe: %r");
 	pid = fork();
 	if(pid == -1)
 		sysfatal("unable to fork");
@@ -412,7 +412,7 @@ sendpack(int fd)
 			sysfatal("%s", buf + 4);
 
 		if(getfields(buf, sp, nelem(sp), 1, " \t\n\r") != 2)
-			sysfatal("invalid ref line %.*s\n", n, buf);
+			sysfatal("invalid ref line %.*s", utfnlen(buf, n), buf);
 		if(resolveref(&ours[nref], sp[1]) == -1)
 			continue;
 		if(hparse(&theirs[nref], sp[0]) == -1)
@@ -436,7 +436,7 @@ sendpack(int fd)
 			n = snprint(buf, sizeof(buf), "%H %H %s",
 				theirs[i], ours[i], refnames[i]);
 			if(n >= sizeof(buf))
-				sysfatal("overlong update\n");
+				sysfatal("overlong update");
 			if(writepkt(fd, buf, n) == -1)
 				sysfatal("unable to send update pkt");
 			updating = 1;
@@ -465,13 +465,11 @@ main(int argc, char **argv)
 	}ARGEND;
 
 	gitinit();
-	if(argc != 1 && argc != 2)
+	if(argc != 1)
 		usage();
 	fd = -1;
 	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
 		sysfatal("bad uri %s", argv0);
-	if(argc == 2)
-		strecpy(repo, repo + sizeof(repo), argv[1]);
 	if(strcmp(proto, "ssh") == 0 || strcmp(proto, "git+ssh") == 0)
 		fd = dialssh(host, port, path);
 	else if(strcmp(proto, "git") == 0)

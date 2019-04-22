@@ -479,7 +479,7 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 				continue;
 			w = readobject(o->ent[i].h);
 			if(!w)
-				die("could not read object %H (%s)", o->ent[i].h, o->ent[i].name);
+				die("could not read object %H (%s): %r", o->ent[i].h, o->ent[i].name);
 			aux->obj = readobject(o->ent[i].h);
 			q->type = (w->type == GTree) ? QTDIR : 0;
 			q->path = QPATH(w->id, qdir);
@@ -843,8 +843,7 @@ Srv gitsrv = {
 void
 usage(void)
 {
-	print("usage: %s [-Rd[ [-m mtpt]\n", argv0);
-	print("\t-R:	mount readonly\n");
+	print("usage: %s [-d] [-m mtpt]\n", argv0);
 	print("\t-d:	debug\n");
 	print("\t-m mp:	mount on mountpoint'mp'\n");
 	exits("usage");
@@ -858,6 +857,8 @@ main(int argc, char **argv)
 	case 'd':	chatty9p++;		break;
 	case 'm':	mtpt = EARGF(usage());	break;
 	}ARGEND;
+	if(argc != 0)
+		usage();
 
 	username = getuser();
 	branches = emalloc(sizeof(char*));

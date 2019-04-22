@@ -51,7 +51,7 @@ showroot(void)
 		sysfatal("could not get wd: %r");
 	while((p = strrchr(path, '/')) != nil){
 		if(snprint(buf, sizeof(buf), "%s/.git", path) >= sizeof(buf))
-			sysfatal("path too long\n");
+			sysfatal("path too long");
 		if(access(buf, AEXIST) == 0){
 			print("%s\n", path);
 			return;
@@ -66,7 +66,7 @@ void
 usage(void)
 {
 	print("usage: %s [-f file]\n", argv0);
-	print("\t-f:	use file 'file' (default: .gitignore)\n");
+	print("\t-f:	use file 'file' (default: .git/config)\n");
 	exits("usage");
 }
 
@@ -79,8 +79,9 @@ main(int argc, char **argv)
 	nfile = 0;
 	findroot = 0;
 	ARGBEGIN{
-	case 'f':	file[nfile++]=EARGF(usage());
-	case 'r':	findroot++;
+	case 'f':	file[nfile++]=EARGF(usage());	break;
+	case 'r':	findroot++;			break;
+	default:	usage();			break;
 	}ARGEND;
 
 	if(findroot)
