@@ -32,12 +32,17 @@ clearobject(Object *o)
 	free(o->committer);
 	free(o->ent);
 
+	o->parsed = 0;
+	o->nent = 0;
 	o->ent = nil;
 	o->all = nil;
 	o->data = nil;
 	o->parent = nil;
+	o->nparent = 0;
 	o->author = nil;
 	o->committer = nil;
+	o->msg = nil;
+	o->nmsg = 0;
 
 	o->flag &= ~Cvalid;
 }
@@ -70,6 +75,7 @@ cache(Object *o)
 		lrutail = lrutail->prev;
 	if(!(o->flag & Cexist)){
 		osadd(&objcache, o);
+		o->id = objcache.nobj;
 		o->flag |= Cexist;
 	}
 	if(o->prev)
@@ -467,7 +473,7 @@ error:
 	return -1;
 }
 
-static vlong
+vlong
 searchindex(Biobuf *f, Hash h)
 {
 	int lo, hi, idx, i, nent;
@@ -679,7 +685,12 @@ parsetree(Object *o)
 		t = &o->ent[o->nent - 1];
 		m = strtol(buf, nil, 8);
 		/* FIXME: symlinks and other BS */
-		t->mode = m & 0777 | ((m & 0040000) ? DMDIR : 0);
+		if(m & 0160000){
+			t->mode = DMDIR;
+			t->gitlink = 1;
+		}
+		if(m & 0040000)
+			t->mode = DMDIR;
 		if(t->mode == DMDIR)
 			t->mode |= 0755;
 		t->name = p;
