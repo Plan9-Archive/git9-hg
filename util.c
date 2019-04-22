@@ -215,6 +215,6 @@ die(char *fmt, ...)
 
 	va_start(ap, fmt);
 	vfprint(2, fmt, ap);
-	abort();
 	va_end(ap);
+	abort();
 }

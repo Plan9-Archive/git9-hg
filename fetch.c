@@ -11,14 +11,15 @@ enum {
 	Nrepo	= 64,
 };
 
-int chatty;
 Object *indexed;
-char *clonesrc;
+char *clonebranch;
 
 void
 usage(void)
 {
-	fprint(2, "git/fetch remote [reponame]\n");
+	fprint(2, "usage: %s [-V] [-b br] remote\n", argv0);
+	fprint(2, "\t-b br:	only fetch matching branch 'br'\n");
+	fprint(2, "remote:	fetch from this repository\n");
 	exits("usage");
 }
 
@@ -126,7 +127,7 @@ dialssh(char *host, char *, char *path)
 
 	fprint(2, "dialing %s...\n", host);
 	if(pipe(pfd) == -1)
-		sysfatal("unable to open pipe: %r\n");
+		sysfatal("unable to open pipe: %r");
 	pid = fork();
 	if(pid == -1)
 		sysfatal("unable to fork");
@@ -191,10 +192,10 @@ resolveref(Hash *h, char *ref)
 		snprint(buf, sizeof(buf), ".git/HEAD");
 	}else if(strstr(ref, "refs/heads") == ref){
 		ref += strlen("refs/heads");
-		snprint(buf, sizeof(buf), ".git/refs/remotes/%s/%s", clonesrc, ref);
+		snprint(buf, sizeof(buf), ".git/refs/remotes/%s/%s", clonebranch, ref);
 	}else if(strstr(ref, "refs/tags") == ref){
 		ref += strlen("refs/tags");
-		snprint(buf, sizeof(buf), ".git/refs/tags/%s/%s", clonesrc, ref);
+		snprint(buf, sizeof(buf), ".git/refs/tags/%s/%s", clonebranch, ref);
 	}else{
 		return -1;
 	}
@@ -368,20 +369,17 @@ main(int argc, char **argv)
 	int fd;
 
 	ARGBEGIN{
-	case '?':	usage();			break;
-	case 'd':	chatty++;			break;
-	case 's':	clonesrc=EARGF(usage());	break;
+	case 'b':	clonebranch=EARGF(usage());	break;
+	default:	usage();			break;
 	}ARGEND;
 
 	gitinit();
-	if(argc != 1 && argc != 2)
+	if(argc != 1)
 		usage();
 	fd = -1;
 
 	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
 		sysfatal("bad uri %s", argv0);
-	if(argc == 2)
-		strecpy(repo, repo + sizeof(repo), argv[1]);
 	if(strcmp(proto, "ssh") == 0 || strcmp(proto, "git+ssh") == 0)
 		fd = dialssh(host, port, path);
 	else if(strcmp(proto, "git") == 0)

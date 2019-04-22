@@ -379,7 +379,7 @@ readpacked(Biobuf *f, Object *o, int flag)
 	s = 4;
 	t = (c >> 4) & 0x7;
 	if(!t){
-		werrstr("unknown type for byte %x\n", c);
+		werrstr("unknown type for byte %x", c);
 		return -1;
 	}
 	while(c & 0x80){
@@ -610,7 +610,7 @@ parseauthor(char **str, int *nstr, char **name, vlong *time)
 	*nstr -= n;
 	
 	if(!regexec(authorpat, buf, m, nelem(m)))
-		sysfatal("invalid author line %s\n", buf);
+		sysfatal("invalid author line %s", buf);
 	nm = m[1].ep - m[1].sp;
 	*name = emalloc(nm + 1);
 	memcpy(*name, m[1].sp, nm);
@@ -750,7 +750,7 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 			if(readpacked(idx, obj, flag) == -1)
 				sysfatal("could not reload object %H", obj->hash);
 			if(Bseek(idx, o, 0) == -1)
-				sysfatal("could not restore offset\n");
+				sysfatal("could not restore offset");
 			cache(obj);
 			return obj;
 		}

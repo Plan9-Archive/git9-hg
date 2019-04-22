@@ -253,7 +253,7 @@ main(int argc, char **argv)
 
 	gitinit();
 	if(access(".git", AEXIST) != 0)
-		sysfatal("could not find git repo: %r\n");
+		sysfatal("could not find git repo: %r");
 	r = treeify(".", &t);
 	if(r == -1)
 		sysfatal("could not commit: %r\n");
