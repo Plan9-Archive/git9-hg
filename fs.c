@@ -460,19 +460,6 @@ gitattach(Req *r)
 	respond(r, nil);
 }
 
-static char*
-gitclone(Fid *o, Fid *n)
-{
-	Gitaux *aux;
-
-	aux = emalloc(sizeof(Gitaux));
-	memcpy(aux, o->aux, sizeof(Gitaux));
-	aux->refpath = nil;
-	aux->ols = nil;
-	n->aux = aux;
-	return nil;
-}
-
 static char *
 objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 {
@@ -663,6 +650,21 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 	return e;
 }
 
+static char*
+gitclone(Fid *o, Fid *n)
+{
+	Gitaux *aux;
+
+	aux = emalloc(sizeof(Gitaux));
+	memcpy(aux, o->aux, sizeof(Gitaux));
+	if(aux->obj)
+		ref(aux->obj);
+	aux->refpath = nil;
+	aux->ols = nil;
+	n->aux = aux;
+	return nil;
+}
+
 static void
 gitdestroyfid(Fid *f)
 {
@@ -675,7 +677,7 @@ gitdestroyfid(Fid *f)
 	 * can abuse it to reset the thing.
 	 */
 	olsinit(aux->ols);
-	unpinobject(aux->obj);
+	unref(aux->obj);
 	free(aux->refpath);
 	free(aux->ols);
 	free(aux);
