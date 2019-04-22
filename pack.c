@@ -18,12 +18,13 @@ Object *lruhead;
 Object *lrutail;
 int	ncache;
 
-void
-clearobject(Object *o)
+static void
+clear(Object *o)
 {
-	if(!o || o->flag & Cpin)
+	if(!o)
 		return;
 
+	assert(o->refs == 0);
 	assert((o->flag & Ccache) == 0);
 	assert(o->flag & Cvalid);
 	free(o->all);
@@ -48,19 +49,19 @@ clearobject(Object *o)
 }
 
 void
-unpinobject(Object *o)
+unref(Object *o)
 {
 	if(!o)
 		return;
-	o->flag &= ~Cpin;
-	if(!(o->flag & Ccache))
-		clearobject(o);
+	o->refs--;
+	if(!o->refs)
+		clear(o);
 }
 
 Object*
-pinobject(Object *o)
+ref(Object *o)
 {
-	o->flag |= Cpin;
+	o->refs++;
 	return o;
 }
 
@@ -93,9 +94,11 @@ cache(Object *o)
 	o->prev = nil;
 	lruhead = o;
 
-	if(!(o->flag & Ccache))
+	if(!(o->flag & Ccache)){
+		o->flag |= Ccache;
+		ref(o);
 		ncache++;
-	o->flag |= Ccache;
+	}
 	while(ncache > Cachemax){
 		p = lrutail;
 		lrutail = p->prev;
@@ -103,7 +106,7 @@ cache(Object *o)
 		p->flag &= ~Ccache;
 		p->prev = nil;
 		p->next = nil;
-		clearobject(p);
+		unref(p);
 		ncache--;
 	}		
 }
@@ -816,7 +819,7 @@ readobject(Hash h)
 
 	o = readidxobject(nil, h, 0);
 	if(o)
-		pinobject(o);
+		ref(o);
 	return o;
 }
 

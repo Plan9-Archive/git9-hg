@@ -31,11 +31,10 @@ typedef enum Type {
 } Type;
 
 enum {
-	Cpin	= 1 << 0,
+	Cvalid	= 1 << 0,
 	Cidx	= 1 << 1,
-	Cvalid	= 1 << 2,
-	Ccache	= 1 << 3,
-	Cexist	= 1 << 4,
+	Ccache	= 1 << 2,
+	Cexist	= 1 << 3,
 };
 
 struct Hash {
@@ -53,6 +52,7 @@ struct Object {
 	/* Cache */
 	int	id;
 	int	flag;
+	int	refs;
 	Object	*next;
 	Object	*prev;
 
@@ -162,8 +162,8 @@ Object	*readobject(Hash);
 void	parseobject(Object *);
 int	indexpack(char *, char *, Hash);
 int	hasheq(Hash *, Hash *);
-Object	*pinobject(Object *);
-void	unpinobject(Object *);
+Object	*ref(Object *);
+void	unref(Object *);
 void	cache(Object *);
 
 /* object sets */
