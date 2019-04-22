@@ -19,6 +19,7 @@ RC=\
 	init\
 	log\
 	pull\
+	push\
 	walk
 
 OFILES=\

@@ -15,7 +15,7 @@ typedef struct Idxent Idxent;
 
 enum {
 	/* 10k objects should be enough */
-	Cachemax=10*1024,
+	Cachemax=1024,
 	Pathmax=512,
 	Hashsz=20,
 };
