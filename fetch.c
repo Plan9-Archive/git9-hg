@@ -393,5 +393,5 @@ main(int argc, char **argv)
 		sysfatal("could not dial %s:%s: %r", proto, host);
 	if(fetchpack(fd, ".git/objects/pack/fetch.tmp") == -1)
 		sysfatal("fetch failed: %r");
-
+	exits(nil);
 }
