@@ -804,7 +804,8 @@ readobject(Hash h)
 	Object *o;
 
 	o = readidxobject(nil, h, 0);
-	pinobject(o);
+	if(o)
+		pinobject(o);
 	return o;
 }
 
