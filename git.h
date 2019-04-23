@@ -14,8 +14,8 @@ typedef struct Dirent Dirent;
 typedef struct Idxent Idxent;
 
 enum {
-	/* 10k objects should be enough */
-	Cachemax=10*1024,
+	/* 5k objects should be enough */
+	Cachemax=5*1024,
 	Pathmax=512,
 	Hashsz=20,
 };

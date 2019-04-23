@@ -483,5 +483,5 @@ main(int argc, char **argv)
 		sysfatal("could not dial %s:%s: %r", proto, host);
 	if(sendpack(fd) == -1)
 		sysfatal("fetch failed: %r");
-
+	exits(nil);
 }
