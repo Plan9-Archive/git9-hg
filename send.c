@@ -227,13 +227,13 @@ pack(Objset *send, Objset *skip, Object *o)
 	osadd(send, o);
 	switch(o->type){
 	case GCommit:
-		if((s = readobject(o->tree)) == nil)
+		if((s = readobject(o->commit->tree)) == nil)
 			sysfatal("could not read tree for commit %H", o->hash);
 		pack(send, skip, s);
 		break;
 	case GTree:
-		for(i = 0; i < o->nent; i++){
-			if ((s = readobject(o->ent[i].h)) == nil)
+		for(i = 0; i < o->tree->nent; i++){
+			if ((s = readobject(o->tree->ent[i].h)) == nil)
 				sysfatal("could not read tree for commit %H", o->hash);
 			pack(send, skip, s);
 		}
@@ -360,8 +360,8 @@ writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
 		if(oshas(&skip, o) || oshas(&send, o))
 			continue;
 		pack(&send, &skip, o);
-		for(i = 0; i < o->nparent; i++){
-			if((p = readobject(o->parent[i])) == nil)
+		for(i = 0; i < o->commit->nparent; i++){
+			if((p = readobject(o->commit->parent[i])) == nil)
 				sysfatal("could not read parent of %H", o->hash);
 			n = emalloc(sizeof(Objq));
 			n->obj = p;
