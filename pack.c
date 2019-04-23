@@ -315,6 +315,7 @@ readrdelta(Biobuf *f, Object *o, int nd, int flag)
 		goto error;
 	if(applydelta(o, b, d, n) == -1)
 		goto error;
+	free(d);
 	return 0;
 error:
 	free(d);
@@ -402,8 +403,10 @@ readpacked(Biobuf *f, Object *o, int flag)
 		b.data = emalloc(b.sz);
 		n = snprint(b.data, 64, "%T %lld", t, l) + 1;
 		b.len = n;
-		if(bdecompress(&b, f, nil) == -1)
+		if(bdecompress(&b, f, nil) == -1){
+			free(b.data);
 			return -1;
+		}
 		o->type = t;
 		o->all = b.data;
 		o->data = b.data + n;
@@ -881,14 +884,13 @@ indexpack(char *pack, char *idx, Hash ph)
 			}
 			if(i % step == 0)
 				fprint(2, ".");
-			if(objects[i]){
-				Bseek(f, o->off, 0);
-				o = objects[i];
-			}else{
+			if(!objects[i]){
 				o = emalloc(sizeof(Object));
 				o->off = Boffset(f);
 				objects[i] = o;
 			}
+			o = objects[i];	
+			Bseek(f, o->off, 0);
 			if (readpacked(f, o, Cidx) == 0){
 				sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
 				parseobject(o);

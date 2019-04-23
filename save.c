@@ -261,4 +261,5 @@ main(int argc, char **argv)
 		sysfatal("empty commit: aborting");
 	mkcommit(&c, msg, name, email, parents, nparents, t);
 	print("%H\n", c);
+	exits(nil);
 }

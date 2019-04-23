@@ -1,6 +1,8 @@
-#!/bin/rc
+#!/bin/rc -e
 
 rfork en
+nl='
+'
 
 if(~ $#* 1){
 	remote=$1
@@ -65,13 +67,12 @@ fn clone{
 		cp .git/refs/remotes/origin/master .git/refs/heads/master
 		git/fs
 		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0}
-		for(f in `{du -a $tree | awk '{print $2}'}){
-			rel=`{sed 's@^'$tree'/*@@' <{echo $f}}
-			if(~ $#rel 0)
-				rel=''
-			idx=.git/index9/tracked/$rel
-			mkdir -p `{basename -d $idx}
-			touch $idx
+		for(f in `$nl{walk -f $tree | sed 's@^'$tree'/*@@'}){
+			if(! ~ $#f 0){
+				idx=.git/index9/tracked/$f
+				mkdir -p `{basename -d $idx}
+				touch $idx
+			}
 		}
 	}
 	if not{
