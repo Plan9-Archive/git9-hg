@@ -6,6 +6,8 @@
 #include <regexp.h>
 
 typedef struct Hash Hash;
+typedef struct Commitdat Commitdat;
+typedef struct Treedat Treedat;
 typedef struct Object Object;
 typedef struct Objset Objset;
 typedef struct Pack Pack;
@@ -31,10 +33,11 @@ typedef enum Type {
 } Type;
 
 enum {
-	Cvalid	= 1 << 0,
+	Cloaded	= 1 << 0,
 	Cidx	= 1 << 1,
 	Ccache	= 1 << 2,
 	Cexist	= 1 << 3,
+	Cparsed	= 1 << 5,
 };
 
 struct Hash {
@@ -49,6 +52,10 @@ struct Dirent {
 };
 
 struct Object {
+	/* Git data */
+	Hash	hash;
+	Type	type;
+
 	/* Cache */
 	int	id;
 	int	flag;
@@ -59,17 +66,26 @@ struct Object {
 	/* For indexing */
 	vlong	off;
 
-	/* Git data */
-	Hash	hash;
-	Type	type;
-
 	/* Everything below here gets cleared */
 	char	*all;
 	char	*data;
-	/* size excludes header */
 	vlong	size;
+	/* size excludes header */
 	int	parsed;
 
+	union {
+		Commitdat *commit;
+		Treedat *tree;
+	};
+};
+
+struct Treedat {
+	/* Tree */
+	Dirent	*ent;
+	int	nent;
+};
+
+struct Commitdat {
 	/* Commit */
 	Hash	*parent;
 	int	nparent;
@@ -80,10 +96,6 @@ struct Object {
 	int	nmsg;
 	vlong	ctime;
 	vlong	mtime;
-
-	/* Tree */
-	Dirent	*ent;
-	int	nent;
 };
 
 struct Objset {

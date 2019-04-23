@@ -26,26 +26,32 @@ clear(Object *o)
 
 	assert(o->refs == 0);
 	assert((o->flag & Ccache) == 0);
-	assert(o->flag & Cvalid);
-	free(o->all);
-	free(o->parent);
-	free(o->author);
-	free(o->committer);
-	free(o->ent);
+	assert(o->flag & Cloaded);
+	switch(o->type){
+	case GCommit:
+		if(!o->commit)
+			break;
+		free(o->commit->parent);
+		free(o->commit->author);
+		free(o->commit->committer);
+		free(o->commit);
+		o->commit = nil;
+		break;
+	case GTree:
+		if(!o->tree)
+			break;
+		free(o->tree->ent);
+		free(o->tree);
+		o->tree = nil;
+		break;
+	default:
+		break;
+	}
 
-	o->parsed = 0;
-	o->nent = 0;
-	o->ent = nil;
+	free(o->all);
 	o->all = nil;
 	o->data = nil;
-	o->parent = nil;
-	o->nparent = 0;
-	o->author = nil;
-	o->committer = nil;
-	o->msg = nil;
-	o->nmsg = 0;
-
-	o->flag &= ~Cvalid;
+	o->flag &= ~Cloaded;
 }
 
 void
@@ -421,7 +427,7 @@ readpacked(Biobuf *f, Object *o, int flag)
 			return -1;
 		break;
 	}
-	o->flag |= Cvalid|flag;
+	o->flag |= Cloaded|flag;
 	return 0;
 }
 
@@ -471,7 +477,7 @@ readloose(Biobuf *f, Object *o, int flag)
 	o->size = sz;
 	o->data = e;
 	o->all = d;
-	o->flag |= Cvalid|flag;
+	o->flag |= Cloaded|flag;
 	return 0;
 
 error:
@@ -634,26 +640,27 @@ parsecommit(Object *o)
 
 	p = o->data;
 	np = o->size;
+	o->commit = emalloc(sizeof(Commitdat));
 	while(1){
 		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
 			break;
 		if(strcmp(buf, "tree") == 0){
 			if(scanword(&p, &np, buf, sizeof(buf)) == -1)
 				sysfatal("invalid commit: tree missing");
-			if(hparse(&o->tree, buf) == -1)
+			if(hparse(&o->commit->tree, buf) == -1)
 				sysfatal("invalid commit: garbled tree");
 		}else if(strcmp(buf, "parent") == 0){
 			if(scanword(&p, &np, buf, sizeof(buf)) == -1)
 				sysfatal("invalid commit: missing parent");
-			o->parent = realloc(o->parent, ++o->nparent * sizeof(Hash));
-			if(!o->parent)
+			o->commit->parent = realloc(o->commit->parent, ++o->commit->nparent * sizeof(Hash));
+			if(!o->commit->parent)
 				sysfatal("unable to malloc: %r");
-			if(hparse(&o->parent[o->nparent - 1], buf) == -1)
+			if(hparse(&o->commit->parent[o->commit->nparent - 1], buf) == -1)
 				sysfatal("invalid commit: garbled parent");
 		}else if(strcmp(buf, "author") == 0){
-			parseauthor(&p, &np, &o->author, &o->mtime);
+			parseauthor(&p, &np, &o->commit->author, &o->commit->mtime);
 		}else if(strcmp(buf, "committer") == 0){
-			parseauthor(&p, &np, &o->committer, &o->ctime);
+			parseauthor(&p, &np, &o->commit->committer, &o->commit->ctime);
 		}else if(strcmp(buf, "gpgsig") == 0){
 			/* just drop it */
 			if((t = strstr(p, "-----END PGP SIGNATURE-----")) == nil)
@@ -667,8 +674,8 @@ parsecommit(Object *o)
 		p++;
 		np--;
 	}
-	o->msg = p;
-	o->nmsg = np;
+	o->commit->msg = p;
+	o->commit->nmsg = np;
 }
 
 static void
@@ -680,6 +687,7 @@ parsetree(Object *o)
 
 	p = o->data;
 	np = o->size;
+	o->tree = emalloc(sizeof(Treedat));
 	while(np > 0){
 		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
 			break;
@@ -687,8 +695,8 @@ parsetree(Object *o)
 			p++;
 			np--;
 		}
-		o->ent = realloc(o->ent, ++o->nent * sizeof(Dirent));
-		t = &o->ent[o->nent - 1];
+		o->tree->ent = realloc(o->tree->ent, ++o->tree->nent * sizeof(Dirent));
+		t = &o->tree->ent[o->tree->nent - 1];
 		m = strtol(buf, nil, 8);
 		/* FIXME: symlinks and other BS */
 		if(m & 0160000){
@@ -719,7 +727,7 @@ parsetag(Object *)
 void
 parseobject(Object *o)
 {
-	if(o->parsed)
+	if(o->flag & Cparsed)
 		return;
 	switch(o->type){
 	case GTree:	parsetree(o);	break;
@@ -743,7 +751,7 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 
 	USED(idx);
 	if((obj = osfind(&objcache, h)) != nil){
-		if(obj->flag & Cvalid)
+		if(obj->flag & Cloaded)
 			return obj;
 		if(obj->flag & Cidx){
 			assert(idx != nil);
@@ -866,7 +874,6 @@ indexpack(char *pack, char *idx, Hash ph)
 		return -1;
 	}
 
-	o = nil;
 	nvalid = 0;
 	nobj = GETBE32(hdr + 8);
 	objects = calloc(nobj, sizeof(Object*));
@@ -889,11 +896,10 @@ indexpack(char *pack, char *idx, Hash ph)
 				o->off = Boffset(f);
 				objects[i] = o;
 			}
-			o = objects[i];	
+			o = objects[i];
 			Bseek(f, o->off, 0);
 			if (readpacked(f, o, Cidx) == 0){
 				sha1((uchar*)o->all, o->size + strlen(o->all) + 1, o->hash.h, nil);
-				parseobject(o);
 				cache(o);
 				valid[i] = 1;
 				n++;
