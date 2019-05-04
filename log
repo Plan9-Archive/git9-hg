@@ -32,7 +32,7 @@ while(! ~$#commits 0){
 
 	commits=($commits(2-) `{cat $base/$c/parent})
 	if(! ~ $#commits 0)
-		commits=`{walk -n0 -emp $base^$commits |
+		commits=`{mtime $base^$commits |
 			sort -rn |
 			awk -F/ '{print $NF}'}
 }
