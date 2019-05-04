@@ -23,13 +23,16 @@ if not{
 
 while(! ~$#commits 0){
 	c=$commits(1)
+	
 	echo 'Hash:	' `{cat $base/$c/hash}
 	echo 'Author:	' `{cat $base/$c/author}
 	cat $base/$c/msg | sed 's/^/	/g'
 	echo ''
 
+
 	commits=($commits(2-) `{cat $base/$c/parent})
-	echo $commits
-	if(! ~$#commits 0)
-		commits=`{du -t $base^$commits | sort -rn | awk -F/ '{print $NF}'}
+	if(! ~ $#commits 0)
+		commits=`{walk -n0 -emp $base^$commits |
+			sort -rn |
+			awk -F/ '{print $NF}'}
 }

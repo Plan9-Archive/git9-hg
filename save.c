@@ -54,14 +54,18 @@ writeobj(Hash *h, char *hdr, int nhdr, char *dat, int ndat)
 	char s[64], o[256];
 	SHA1state *st;
 	Biobuf *f;
+	int fd;
 
 	st = sha1((uchar*)hdr, nhdr, nil, nil);
 	st = sha1((uchar*)dat, ndat, nil, st);
 	sha1(nil, 0, h->h, st);
 	if(snprint(s, sizeof(s), "%H", *h) >= sizeof(s))
 		sysfatal("bad hash");
+	fd = create(".git/objects", OREAD, DMDIR|0755);
+	close(fd);
 	snprint(o, sizeof(o), ".git/objects/%c%c", s[0], s[1]);
-	create(o, OREAD, DMDIR | 0755);
+	fd = create(o, OREAD, DMDIR | 0755);
+	close(fd);
 	snprint(o, sizeof(o), ".git/objects/%c%c/%s", s[0], s[1], s + 2);
 	if(readobject(*h) == nil){
 		if((f = Bopen(o, OWRITE)) == nil)
@@ -104,7 +108,6 @@ tracked(char *path)
 		sysfatal("overlong tracked path");
 	if(strstr(cleanname(ipath), ".git/index9/removed") != ipath)
 		sysfatal("path %s leaves index", ipath);
-	print("ipath: %s: exists: %d\n", ipath, access(ipath, AEXIST));
 	if(access(ipath, AEXIST) == 0)
 		return 0;
 
@@ -113,7 +116,6 @@ tracked(char *path)
 		sysfatal("overlong tracked path");
 	if(strstr(cleanname(ipath), ".git/index9/tracked") != ipath)
 		sysfatal("path %s leaves index", ipath);
-	print("ipath: %s: exists: %d\n", ipath, access(ipath, AEXIST));
 	if(access(ipath, AEXIST) == 0)
 		return 1;
 
@@ -246,8 +248,6 @@ main(int argc, char **argv)
 	if(!msg) sysfatal("missing message");
 	if(!name) sysfatal("missing name");
 	if(!email) sysfatal("missing email");
-	if(nparents == 0) sysfatal("need at least one parent");
-
 	if(!msg || !name)
 		usage();
 
