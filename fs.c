@@ -470,6 +470,8 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 
 	e = nil;
 	o = aux->obj;
+	if(!o)
+		return Eexist;
 	if(o->type == GTree){
 		q->type = 0;
 		for(i = 0; i < o->nent; i++){
@@ -488,7 +490,7 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 		assert(qdir == Qcommit || qdir == Qobject || qdir == Qcommittree || qdir == Qhead);
 		if(strcmp(name, "msg") == 0)
 			q->path = QPATH(aux->obj->id, Qcommitmsg);
-		else if(strcmp(name, "parent") == 0)
+		else if(strcmp(name, "parent") == 0 && o->nparent != 0)
 			q->path = QPATH(aux->obj->id, Qcommitparent);
 		else if(strcmp(name, "hash") == 0)
 			q->path = QPATH(aux->obj->id, Qcommithash);
@@ -516,14 +518,10 @@ readref(char *pathstr)
 
 	snprint(path, sizeof(path), "%s", pathstr);
 	while(1){
-		if((f = open(path, OREAD)) == -1){
-			print("failed to open path: %r\n");
+		if((f = open(path, OREAD)) == -1)
 			return nil;
-		}
-		if((n = readn(f, buf, sizeof(buf) - 1)) == -1){
-			print("failed to read\n");
+		if((n = readn(f, buf, sizeof(buf) - 1)) == -1)
 			return nil;
-		}
 		close(f);
 		buf[n] = 0;
 		if(strncmp(buf, "ref:", 4) !=  0)
@@ -734,6 +732,12 @@ gitread(Req *r)
 		e = readctl(r);
 		break;
 	case Qhead:
+		/* Empty repositories have no HEAD */
+		if(aux->obj == nil)
+			r->ofcall.count = 0;
+		else
+			objread(r, aux);
+		break;
 	case Qcommit:
 	case Qcommittree:
 	case Qcommitdata:
@@ -768,7 +772,7 @@ gitstat(Req *r)
 			r->d.name = estrdup9p("/");
 			break;
 		case Qhead:
-			r->d.name = extrdup9p("HEAD");
+			r->d.name = estrdup9p("HEAD");
 			break;
 		case Qbranch:
 			r->d.name = estrdup9p("branch");
