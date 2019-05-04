@@ -767,6 +767,9 @@ gitstat(Req *r)
 		case Qroot:
 			r->d.name = estrdup9p("/");
 			break;
+		case Qhead:
+			r->d.name = extrdup9p("HEAD");
+			break;
 		case Qbranch:
 			r->d.name = estrdup9p("branch");
 			break;
