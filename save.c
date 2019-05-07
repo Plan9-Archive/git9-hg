@@ -177,7 +177,8 @@ mkcommit(Hash *c, char *msg, char *name, char *email, Hash *parents, int nparent
 	fmtprint(&f, "tree %H\n", tree);
 	for(i = 0; i < nparents; i++)
 		fmtprint(&f, "parent %H\n", parents[i]);
-	fmtprint(&f, "author %s <%s> %lld 0000\n", name, email, (vlong)time(nil));
+	fmtprint(&f, "author %s <%s> %lld +0000\n", name, email, (vlong)time(nil));
+	fmtprint(&f, "committer %s <%s> %lld +0000\n", name, email, (vlong)time(nil));
 	fmtprint(&f, "\n");
 	fmtprint(&f, "%s", msg);
 	s = fmtstrflush(&f);
