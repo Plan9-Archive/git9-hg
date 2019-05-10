@@ -18,6 +18,7 @@ while(~ $1 -*){
 		break
 	case *; usage
 	}
+	shift
 }
 
 dir=`{pwd}
