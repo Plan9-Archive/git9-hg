@@ -22,10 +22,7 @@ rm -rf .git/index9/tracked/^$files
 rm -rf .git/index9/removed/^$files
 rm -f $files
 for(f in $files){
-	rel=`{sed 's@^'$tree'/*@@' <{echo $f}}
-	if(~ $#rel 0)
-		rel=''
-	idx=.git/index9/tracked/$rel
+	idx=.git/index9/tracked/$f
 	mkdir -p `{basename -d $f}
 	mkdir -p `{basename -d $idx}
 	touch $idx
