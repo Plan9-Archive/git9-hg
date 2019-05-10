@@ -21,6 +21,10 @@ while(~ $1 -*){
 	}
 	shift
 }
+if(~ $#* 0){
+	echo $cur
+	exit
+}
 if(! ~ $#* 1)
 	usage
 
