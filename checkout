@@ -2,26 +2,32 @@
 
 rfork en
 
-
 files=$*
 pfx=`{git/conf -p}
+nl='
+'
 if(~ $#* 0)
-	files=`{git/walk | awk '$1=="D"||$1=="T"{print $2}'}
+	files=`$nl{git/walk -q}
+if(~ $#files 0)
+	exit
 
 if(! cd `{git/conf -r}){
 	echo 'not a git repository' >[1=2]
 	exit notgit
 }
 
+
 files=$files
 tree=/mnt/git/HEAD/tree
-rm -rf .git/index9/^$files
+rm -rf .git/index9/tracked/^$files
+rm -rf .git/index9/removed/^$files
 rm -f $files
 for(f in $files){
 	rel=`{sed 's@^'$tree'/*@@' <{echo $f}}
 	if(~ $#rel 0)
 		rel=''
 	idx=.git/index9/tracked/$rel
+	mkdir -p `{basename -d $f}
 	mkdir -p `{basename -d $idx}
 	touch $idx
 	cp $tree/$f $f
