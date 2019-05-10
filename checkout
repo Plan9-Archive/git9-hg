@@ -16,8 +16,6 @@ if(! cd `{git/conf -r}){
 	exit notgit
 }
 
-
-files=$files
 tree=/mnt/git/HEAD/tree
 rm -rf .git/index9/tracked/^$files
 rm -rf .git/index9/removed/^$files
