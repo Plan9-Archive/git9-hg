@@ -15,17 +15,8 @@ if(! cd `{git/conf -r}){
 	echo 'not a git repository' >[1=2]
 	exit notgit
 }
-git/fs
-
-
-files=$*
-pfx=`{git/conf -p}
-if(~ $#* 0)
-	files=`{git/walk | awk '{print $2}'}
 
 git/fs
-files=$files
->>>>>>> other
 tree=/mnt/git/HEAD/tree
 rm -rf .git/index9/tracked/^$files
 rm -rf .git/index9/removed/^$files
