@@ -15,10 +15,13 @@ fn usage{
 }
 
 new=$1
+stay=''
+create=''
 cur=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 while(~ $1 -*){
 	switch($1){
-	case -b; cur=$1
+	case -c; create=true
+	case -s; stay=true
 	case -o; origin=$1
 	case -c; create=true
 	case --; break;
@@ -41,22 +44,29 @@ if(! cd `{git/conf -r}){
 
 git/fs
 
-if(test -e .git/refs/heads/$new){
-	echo could not create $branch: already exists >[1=2]
-	exit exists
-}
-
-branched=''
-candidates=(.git/refs/$cur .git/refs/heads/$cur .git/refs/remotes/$cur .git/refs/remotes/*/$cur)
-for(br in $candidates){
-	if(test -f $br){
-		echo 'creating new branch '$new
-		cp $br .git/refs/heads/$new
-		branched="ok"
+if(! ~ $create ''){
+	if(test -e .git/refs/heads/$new){
+		echo could not create $new: already exists >[1=2]
+		exit exists
+	}
+	
+	branched=''
+	candidates=(.git/refs/$cur .git/refs/heads/$cur .git/refs/remotes/$cur .git/refs/remotes/*/$cur)
+	for(br in $candidates){
+		if(test -f $br){
+			echo 'creating new branch '$new
+			cp $br .git/refs/heads/$new
+			branched="ok"
+		}
+	}
+	if(~ $branched ''){
+		echo 'could not find branch '$cur >[1=2]
+		exit notfound
 	}
 }
 
-if(~ $branched ''){
-	echo 'could not find branch '$cur >[1=2]
-	exit notfound
+echo checkout
+if(~ $stay ''){
+	echo 'ref: refs/heads/'$new > .git/HEAD
+	git/checkout
 }

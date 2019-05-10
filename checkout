@@ -2,11 +2,21 @@
 
 rfork en
 
+files=$*
+pfx=`{git/conf -p}
+nl='
+'
+if(~ $#* 0)
+	files=`$nl{git/walk -q}
+if(~ $#files 0)
+	exit
+
 if(! cd `{git/conf -r}){
 	echo 'not a git repository' >[1=2]
 	exit notgit
 }
 git/fs
+
 
 files=$*
 pfx=`{git/conf -p}
@@ -15,8 +25,10 @@ if(~ $#* 0)
 
 git/fs
 files=$files
+>>>>>>> other
 tree=/mnt/git/HEAD/tree
-rm -rf .git/index9/^$files
+rm -rf .git/index9/tracked/^$files
+rm -rf .git/index9/removed/^$files
 rm -f $files
 for(f in $files){
 	rel=`{sed 's@^'$tree'/*@@' <{echo $f}}

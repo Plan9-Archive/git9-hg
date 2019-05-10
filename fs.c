@@ -468,6 +468,7 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 	char *e;
 	int i;
 
+	w = nil;
 	e = nil;
 	o = aux->obj;
 	if(!o)
@@ -485,6 +486,8 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 			q->path = QPATH(w->id, qdir);
 			aux->obj = w;
 		}
+		if(!w)
+			e = Eexist;
 	}else if(o->type == GCommit){
 		q->type = 0;
 		assert(qdir == Qcommit || qdir == Qobject || qdir == Qcommittree || qdir == Qhead);
@@ -504,7 +507,7 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 		else
 			e = Eexist;
 	}else if(o->type == GTag){
-		e = "tag walk unsupported";
+		e = "tag walk unimplemented";
 	}
 	return e;
 }
