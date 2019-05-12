@@ -855,9 +855,9 @@ Srv gitsrv = {
 void
 usage(void)
 {
-	print("usage: %s [-d] [-m mtpt]\n", argv0);
-	print("\t-d:	debug\n");
-	print("\t-m mp:	mount on mountpoint'mp'\n");
+	fprint(2, "usage: %s [-d] [-m mtpt]\n", argv0);
+	fprint(2, "\t-d:	debug\n");
+	fprint(2, "\t-m mp:	mount on mountpoint'mp'\n");
 	exits("usage");
 }
 

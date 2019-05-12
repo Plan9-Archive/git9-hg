@@ -38,14 +38,6 @@ int chatty;
 int sendall;
 char *curbranch = "refs/heads/master";
 
-void
-usage(void)
-{
-	fprint(2, "usage: %s remote [reponame]\n", argv0);
-	exits("usage");
-}
-
-
 static int
 readpkt(int fd, char *buf, int nbuf)
 {
@@ -446,6 +438,13 @@ sendpack(int fd)
 	if(!updating)
 		sysfatal("nothing to do here");
 	return writepack(fd, theirs, nref, ours, nref);
+}
+
+void
+usage(void)
+{
+	fprint(2, "usage: %s remote [reponame]\n", argv0);
+	exits("usage");
 }
 
 void

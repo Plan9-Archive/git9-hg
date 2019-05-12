@@ -65,8 +65,9 @@ showroot(void)
 void
 usage(void)
 {
-	print("usage: %s [-f file]\n", argv0);
-	print("\t-f:	use file 'file' (default: .git/config)\n");
+	fprint(2, "usage: %s [-f file] [-r] \n", argv0);
+	fprint(2, "\t-f:	use file 'file' (default: .git/config)\n");
+	fprint(2, "\t r:	print repository root\n");
 	exits("usage");
 }
 
