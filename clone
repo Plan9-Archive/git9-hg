@@ -1,4 +1,4 @@
-#!/bin/rc -e
+#!/bin/rc
 
 rfork en
 nl='
@@ -52,7 +52,7 @@ fn clone{
 			if(headref != ""){
 				remote = headref
 				gsub("^refs/remotes/origin", "refs/heads", headref)
-				system("mkdir -p `{basename -d "headref"}");
+				system("mkdir -p `{basename -d .git/" headref"}");
 				system("cp .git/" remote " .git/" headref)
 				print "ref: " headref > ".git/HEAD"
 			}else{
@@ -61,6 +61,7 @@ fn clone{
 			}
 		}
 	'} |[3] tr '\x0d' '\x0a'
+
 	tree=/mnt/git/branch/heads/master/tree
 	echo checking out repository...
 	if(test -f .git/refs/remotes/origin/master){
@@ -83,6 +84,7 @@ fn clone{
 
 @{clone}
 st=$status
+echo clone status is $st
 if(~ $st ''){
 	echo done.
 }
