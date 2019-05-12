@@ -185,13 +185,13 @@ preadbe32(Biobuf *b, int *v, vlong off)
 static int
 preadbe64(Biobuf *b, vlong *v, vlong off)
 {
-	char buf[4];
+	char buf[8];
 	
 	if(Bseek(b, off, 0) == -1)
 		return -1;
 	if(Bread(b, buf, sizeof(buf)) == -1)
 		return -1;
-	*v = GETBE32(buf);
+	*v = GETBE64(buf);
 	return 0;
 }
 
