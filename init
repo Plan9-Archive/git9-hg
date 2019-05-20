@@ -17,8 +17,12 @@ while(~ $1 -*){
 	shift
 }
 
-if(! ~ $#* 1)
+if (~ $#* 0)
+	dir=.
+if not if(~ $#* 1)
+	dir=$1
+if not
 	usage
 
-mkdir -p ./$1$sub
-dircp /sys/lib/git/template ./$1$sub
+mkdir -p $dir$sub
+dircp /sys/lib/git/template $dir/$sub
