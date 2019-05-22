@@ -1,7 +1,6 @@
 #include <bio.h>
 #include <mp.h>
 #include <libsec.h>
-#include <ctype.h>
 #include <flate.h>
 #include <regexp.h>
 
