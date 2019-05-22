@@ -13,6 +13,7 @@ fn usage {
 	echo '	-a:		push all' >[1=2]
 	echo '	-u upstream:	push to repo "upstream" (default: origin)' >[1=2]
 	echo '	-b branch:	push branch "branch" (default: current branch)' >[1=2]
+	exit usage
 }
 
 remote=''
