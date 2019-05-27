@@ -9,6 +9,7 @@ TARG=\
 	send\
 	save\
 	conf\
+	query
 
 RC=\
 	add\
