@@ -9,7 +9,8 @@ TARG=\
 	send\
 	save\
 	conf\
-	query
+	query\
+	walk
 
 RC=\
 	add\
@@ -22,7 +23,6 @@ RC=\
 	log\
 	pull\
 	push\
-	walk
 
 OFILES=\
 	objset.$O\
