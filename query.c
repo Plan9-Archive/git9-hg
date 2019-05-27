@@ -5,6 +5,8 @@
 #include "git.h"
 
 typedef struct Eval	Eval;
+typedef struct XObject	XObject;
+
 struct Eval {
 	char	*str;
 	char	*p;
@@ -14,8 +16,9 @@ struct Eval {
 };
 
 struct XObject {
+	Object	*obj;
 	Object	*mark;
-	Object	*val;
+	XObject	*queue;
 	XObject	*next;
 };
 
@@ -84,23 +87,95 @@ take(Eval *ev, char *m)
 	return 1;
 }
 
+XObject*
+hnode(XObject *ht[], Object *o)
+{
+	XObject *h;
+	int	hh;
+
+	hh = o->hash.h[0] & 0xff;
+	for(h = ht[hh]; h; h = h->next)
+		if(hasheq(&o->hash, &h->obj->hash))
+			return h;
+
+	h = malloc(sizeof(*h));
+	h->obj = o;
+	h->mark = nil;
+	h->queue = nil;
+	h->next = ht[hh];
+	ht[hh] = h;
+	return h;
+}
+
 int
 ancestor(Eval *ev)
 {
-	Object *a, *b;
-	XObject **tab;
+	Object *a, *b, *o, *p;
+	XObject *ht[256];
+	XObject *h, *q, *q1, *q2;
+	int i, r;
 
+	if(ev->nstk < 2){
+		werrstr("ancestor needs 2 objects");
+		return -1;
+	}
 	a = pop(ev);
 	b = pop(ev);
+	if(a == b){
+		push(ev, a);
+		return 0;
+	}
+
+	r = -1;
+	memset(ht, 0, sizeof(ht));
+	q1 = nil;
+
+	h = hnode(ht, a);
+	h->mark = a;
+	h->queue = q1;
+	q1 = h;
+
+	h = hnode(ht, b);
+	h->mark = b;
+	h->queue = q1;
+	q1 = h;
 
 	while(1){
-		if(a == b){
-			push(ev, a);
-			return 0;
+		q2 = nil;
+		while(q = q1){
+			q1 = q->queue;
+			q->queue = nil;
+			o = q->obj;
+			for(i = 0; i < o->commit->nparent; i++){
+				p = readobject(o->commit->parent[i]);
+				h = hnode(ht, p);
+				if(h->mark != nil){
+					if(h->mark != q->mark){
+						push(ev, h->obj);
+						r = 0;
+						goto done;
+					}
+				} else {
+					h->mark = q->mark;
+					h->queue = q2;
+					q2 = h;
+				}
+			}
 		}
-		
+		if(q2 == nil){
+			werrstr("no common ancestor");
+			break;
+		}
+		q1 = q2;
 	}
-	return -1;
+done:
+	for(i=0; i<nelem(ht); i++){
+		while(h = ht[i]){
+			ht[i] = h->next;
+			free(h);
+		}
+	}
+	return r;
 }
 
 int
@@ -208,21 +283,20 @@ done:
 int
 evalexpr(Eval *ev)
 {
-	if(evalpostfix(ev) == -1)
-		return -1;
-	if(ev->p[0] == '\0')
-		return 0;
-	else if(take(ev, ":") || take(ev, "..")){
+	while(1){
 		if(evalpostfix(ev) == -1)
 			return -1;
-		if(ev->p[0] != '\0'){
-			werrstr("junk at end of expression");
-			return -1;
+		if(ev->p[0] == '\0')
+			return 0;
+		else if(take(ev, ":") || take(ev, "..")){
+			if(evalpostfix(ev) == -1)
+				return -1;
+			if(ev->p[0] != '\0'){
+				werrstr("junk at end of expression");
+				return -1;
+			}
+			return range(ev);
 		}
-		return range(ev);
-	}else{
-		werrstr("unknown operator %c", *ev->p);
-		return -1;
 	}
 }
 
