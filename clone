@@ -72,7 +72,7 @@ fn clone{
 			if(! ~ $#f 0){
 				idx=.git/index9/tracked/$f
 				mkdir -p `{basename -d $idx}
-				touch $idx
+				walk -eq $f > $idx
 			}
 		}
 	}
@@ -82,9 +82,10 @@ fn clone{
 	}
 }
 
-@{clone}
-st=$status
-echo clone status is $st
+@{
+	clone
+	st=$status
+}
 if(~ $st ''){
 	echo done.
 }
