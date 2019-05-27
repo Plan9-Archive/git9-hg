@@ -48,7 +48,7 @@ for(f in $indexed){
 		decho R $f
 		result=dirty
 	}
-	if not if(! cmp $f /mnt/git/branch/$branch/tree/$f){
+	if not if(! ~ `{walk -eq $f} `{cat .git/index9/tracked/$f}){
 		decho D $f
 		result=dirty
 	}

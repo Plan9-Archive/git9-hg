@@ -17,6 +17,7 @@ RC=\
 	checkout\
 	clone\
 	commit\
+	diff\
 	init\
 	log\
 	pull\

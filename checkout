@@ -25,6 +25,6 @@ for(f in $files){
 	idx=.git/index9/tracked/$f
 	mkdir -p `{basename -d $f}
 	mkdir -p `{basename -d $idx}
-	touch $idx
+	walk -eq $f > $addpath
 	cp $tree/$f $f
 }
