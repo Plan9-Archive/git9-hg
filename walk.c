@@ -5,6 +5,7 @@
 #define NCACHE 256
 #define TDIR ".git/index9/tracked"
 #define RDIR ".git/index9/removed"
+#define BFMT "/mnt/git/branch/%s/tree"
 typedef struct Cache	Cache;
 typedef struct Wres	Wres;
 struct Cache {
@@ -21,6 +22,7 @@ struct Wres {
 
 Cache seencache[NCACHE];
 int quiet;
+char branch[256] = "/mnt/git/HEAD/tree";
 char *rstr = "R ";
 char *tstr = "T ";
 char *dstr = "D ";
@@ -99,12 +101,19 @@ error:
 	return ret;
 }
 
+int
+cmp(void *pa, void *pb)
+{
+	return strcmp(*(char **)pa, *(char **)pb);
+}
+
 void
 dedup(Wres *r)
 {
 	int i, o;
 
 	o = 0;
+	qsort(r->path, r->npath, sizeof(r->path[0]), cmp);
 	for(i = 0; i < r->npath; i++){
 		if(strcmp(r->path[o], r->path[i]) != 0){
 			o++;
@@ -152,7 +161,6 @@ sameqid(char *f, char *qf)
 		return -1;
 	snprint(qs, sizeof(qs), "%ullx.%uld.%.2uhhx",
 	    d->qid.path, d->qid.vers, d->qid.type);
-	print("%s: %s == %s?\n", f, qs, q);
 	if(strcmp(qs, q) == 0)
 		return 0;
 	return -1;
@@ -168,13 +176,23 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char rmpath[256], tpath[256], *p, *dirty;
+	char rmpath[256], tpath[256], *p, *b, *dirty;
 	Wres r;
 	int i;
 
 	ARGBEGIN{
 	case 'q':
 		quiet++;
+		break;
+	case 'b':
+		b = EARGF(usage());
+		if(snprint(branch, sizeof(branch), BFMT, b) >= sizeof(branch))
+			sysfatal("overlong branch name");			
+		break;
+	case 'c':
+		rstr = "";
+		tstr = "";
+		dstr = "";
 		break;
 	default:
 		usage();
@@ -185,6 +203,8 @@ main(int argc, char **argv)
 	r.path = nil;
 	r.npath = 0;
 	r.pathsz = 0;
+	if(access(branch, AEXIST) == 0 && readpaths(&r, branch, "") == -1)
+		sysfatal("read branch files: %r");
 	if(access(TDIR, AEXIST) == 0 && readpaths(&r, TDIR, "") == -1)
 		sysfatal("read tracked: %r");
 	if(access(RDIR, AEXIST) == 0 && readpaths(&r, RDIR, "") == -1)
@@ -193,16 +213,16 @@ main(int argc, char **argv)
 
 	for(i = 0; i < r.npath; i++){
 		p = r.path[i];
-		if(snprint(rmpath, sizeof(rmpath), ".git/removed/%s", p) >= sizeof(rmpath))
+		if(snprint(rmpath, sizeof(rmpath), RDIR"/%s", p) >= sizeof(rmpath))
 			sysfatal("overlong path");
-		if(snprint(tpath, sizeof(tpath), ".git/tracked/%s", p) >= sizeof(tpath))
+		if(snprint(tpath, sizeof(tpath), TDIR"/%s", p) >= sizeof(tpath))
 			sysfatal("overlong path");
 		if(access(p, AEXIST) != 0 || access(rmpath, AEXIST) == 0){
 			print("%s: nope: %r\n", p);
 			dirty = "dirty";
 			if(!quiet)
 				print("%s%s\n", rstr, p);
-		}else if(sameqid(p, tpath) == 0){
+		}else if(sameqid(p, tpath) != 0){
 			dirty = "dirty";
 			if(!quiet)
 				print("%s%s\n", dstr, p);
