@@ -169,6 +169,7 @@ int Qfmt(Fmt*);
 void gitinit(void);
 
 /* object io */
+int	resolverefs(Hash **, char *);
 int	resolveref(Hash *, char *);
 Object	*readobject(Hash);
 void	parseobject(Object *);
