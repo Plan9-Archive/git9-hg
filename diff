@@ -24,7 +24,7 @@ while(~ $1 -*){
 
 if(~ $#branch 0)
 	branch=`{git/branch}
-dirty=`{git/walk -b $branch | awk '/^D/ {print $2}'}
+dirty=`{git/walk | awk '/^D/ {print $2}'}
 if(! ~ $#* 0){
 	echo $dirty | sed 's/ /\n/g' | sort >/tmp/git.diff.dirty
 	echo $* | sed 's/ /\n/g' | sort >/tmp/git.diff.args
