@@ -202,8 +202,8 @@ range(Eval *)
 int
 readref(Hash *h, char *ref)
 {
-	static char *try[] = {"", "heads/", "remotes/", "tags/", nil};
-	char buf[256], s[64], **pfx;
+	static char *try[] = {"", "refs/", "refs/heads/", "refs/remotes/", "refs/tags/", nil};
+	char buf[256], s[256], **pfx;
 	int r, f, n;
 
 	/* TODO: support hash prefixes */
@@ -213,17 +213,21 @@ readref(Hash *h, char *ref)
 		snprint(buf, sizeof(buf), ".git/HEAD");
 		if((f = open(buf, OREAD)) == -1)
 			return -1;
-		if(readn(f, s, sizeof(s)) >= 40)
-			r = hparse(h, s);
+		if((n = readn(f, s, sizeof(s) - 1))== -1)
+			return -1;
+		s[n] = 0;
+		strip(s);
+		r = hparse(h, s);
 		goto found;
 	}
 	for(pfx = try; *pfx; pfx++){
-		snprint(buf, sizeof(buf), ".git/refs/%s%s", *pfx, ref);
+		snprint(buf, sizeof(buf), ".git/%s%s", *pfx, ref);
 		if((f = open(buf, OREAD)) == -1)
 			continue;
-		n = readn(f, s, sizeof(s) - 1);
-		if(n >= 0)
-			s[n] = 0;
+		if((n = readn(f, s, sizeof(s) - 1)) == -1)
+			continue;
+		s[n] = 0;
+		strip(s);
 		r = hparse(h, s);
 		close(f);
 		goto found;
@@ -231,8 +235,8 @@ readref(Hash *h, char *ref)
 	return -1;
 
 found:
-	if(r == -1 && strstr(buf, "ref: ") == buf)
-		r = readref(h, buf + strlen("ref: "));
+	if(r == -1 && strstr(s, "ref: ") == s)
+		r = readref(h, s + strlen("ref: "));
 	return r;
 }
 
