@@ -1,15 +1,8 @@
 #include <u.h>
 #include <libc.h>
-#include <bio.h>
 #include <ctype.h>
 
-static char *
-strip(char *p)
-{
-	for(; *p == '\t' || *p == ' '; p++)
-		/* nothing */;
-	return p;
-}
+#include "git.h"
 
 static int
 showconf(char *cfg, char *sect, char *key)
