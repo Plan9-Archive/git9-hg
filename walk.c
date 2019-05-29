@@ -218,7 +218,6 @@ main(int argc, char **argv)
 		if(snprint(tpath, sizeof(tpath), TDIR"/%s", p) >= sizeof(tpath))
 			sysfatal("overlong path");
 		if(access(p, AEXIST) != 0 || access(rmpath, AEXIST) == 0){
-			print("%s: nope: %r\n", p);
 			dirty = "dirty";
 			if(!quiet)
 				print("%s%s\n", rstr, p);
