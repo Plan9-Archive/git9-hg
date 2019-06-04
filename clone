@@ -61,6 +61,8 @@ fn clone{
 			}
 		}
 	'} |[3] tr '\x0d' '\x0a'
+	if(! ~ $status '|')
+		exit 'failed to clone'
 
 	tree=/mnt/git/branch/heads/master/tree
 	echo checking out repository...
@@ -82,10 +84,8 @@ fn clone{
 	}
 }
 
-@{
-	clone
-	st=$status
-}
+@{clone}
+st=$status
 if(~ $st ''){
 	echo done.
 }
