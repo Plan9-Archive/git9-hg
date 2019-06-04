@@ -62,7 +62,7 @@ fn clone{
 		}
 	'} |[3] tr '\x0d' '\x0a'
 	if(! ~ $status '|')
-		exit 'failed to clone'
+		exit 'clone:' $status
 
 	tree=/mnt/git/branch/heads/master/tree
 	echo checking out repository...
@@ -70,6 +70,8 @@ fn clone{
 		cp .git/refs/remotes/origin/master .git/refs/heads/master
 		git/fs
 		@ {builtin cd $tree && tar cif /fd/1 .} | @ {tar xf /fd/0}
+		if(! ~ $status '')
+			exit 'checkout:' $status
 		for(f in `$nl{walk -f $tree | sed 's@^'$tree'/*@@'}){
 			if(! ~ $#f 0){
 				idx=.git/index9/tracked/$f
