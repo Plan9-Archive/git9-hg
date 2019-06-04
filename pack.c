@@ -642,7 +642,7 @@ parsecommit(Object *o)
 
 	p = o->data;
 	np = o->size;
-	o->commit = emalloc(sizeof(Commitdat));
+	o->commit = emalloc(sizeof(Cinfo));
 	while(1){
 		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
 			break;
@@ -689,7 +689,7 @@ parsetree(Object *o)
 
 	p = o->data;
 	np = o->size;
-	o->tree = emalloc(sizeof(Treedat));
+	o->tree = emalloc(sizeof(Tinfo));
 	while(np > 0){
 		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
 			break;

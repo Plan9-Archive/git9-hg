@@ -4,6 +4,7 @@
 #include <fcall.h>
 #include <thread.h>
 #include <9p.h>
+#include <pool.h>
 
 #include "git.h"
 
@@ -35,23 +36,6 @@ enum {
 
 enum {
 	Npath = 64,
-};
-
-struct Ols {
-	int qtype;
-	int l0;
-	int n0;
-	Dir *d0;
-	int l1;
-	int n1;
-	Dir *d1;
-	int lp;
-	int np;
-	int pfd;
-	int inpack;
-	int last;
-	Object *oprev;
-	char pfx[32];
 };
 
 typedef struct Gitaux Gitaux;
@@ -93,6 +77,26 @@ found:
 	if(aux)
 		aux->refpath = estrdup(branches[i]);
 	return QPATH(i, Qbranch|Internal);
+}
+
+static void
+obj2dir(Dir *d, Object *o, long qdir, vlong mtime)
+{
+	char name[64];
+
+	snprint(name, sizeof(name), "%H", o->hash);
+	d->name = estrdup9p(name);
+	d->qid.type = QTDIR;
+	d->qid.path = QPATH(o->id, qdir);
+	d->atime = mtime;
+	d->mtime = mtime;
+	d->mode = 0755 | DMDIR;
+	if(o->type == GBlob || o->type == GTag){
+		d->qid.type = 0;
+		d->mode = 0644;
+		d->length = o->size;
+	}
+
 }
 
 static int
@@ -230,187 +234,37 @@ gcommitgen(int i, Dir *d, void *p)
 	return 0;
 }
 
-static void
-obj2dir(Dir *d, Object *o, long qdir, vlong mtime)
-{
-	char name[64];
-
-	snprint(name, sizeof(name), "%H", o->hash);
-	d->name = estrdup9p(name);
-	d->qid.type = QTDIR;
-	d->qid.path = QPATH(o->id, qdir);
-	d->atime = mtime;
-	d->mtime = mtime;
-	d->mode = 0755 | DMDIR;
-	if(o->type == GBlob || o->type == GTag){
-		d->qid.type = 0;
-		d->mode = 0644;
-		d->length = o->size;
-	}
-
-}
-
-int
-olsinit(Ols *st)
-{
-	if(!st)
-		return 0;
-	free(st->d0);
-	free(st->d1);
-	free(st->oprev);
-
-	st->d0 = nil;
-	st->d1 = nil;
-	st->l0 = 0;
-	st->l1 = 0;
-	st->n1 = 0;
-	st->last = 0;
-	st->pfd = -1;
-	st->oprev = nil;
-	if((st->n0 = slurpdir(".git/objects", &st->d0)) == -1)
-		return -1;
-	return 0;
-}
-
-static int
-openpack(char *path, int *np)
-{
-	int fd;
-	char buf[4];
-
-	if((fd = open(path, OREAD)) == -1)
-		return -1;
-	if(seek(fd, 8 + 255*4, 0) == -1)
-		return -1;
-	if(readn(fd, buf, sizeof(buf)) != sizeof(buf))
-		return -1;
-	*np = GETBE32(buf);
-	return fd;
-}
-
-static int
-nextpack(Ols *st){
-	char path[128];
-	char *n;
-	int nn, np;
-
-	close(st->pfd);
-	while(1){
-		if(st->l1 == st->n1){
-			st->inpack = 0;
-			return -1;
-		}
-		n = st->d1[st->l1].name;
-		nn = strlen(n);
-		np = strlen(".idx");
-		st->l1++;
-		if(nn > np && strcmp(n + nn - np, ".idx") != 0)
-			continue;
-		snprint(path, sizeof(path), ".git/objects/pack/%s", n);
-		if((st->pfd = openpack(path, &st->np)) == -1)
-			return -1;
-		return 0;
-	}
-}
-
-static int
-nextdir(Ols *st)
-{
-	char path[128];
-
-	if(st->l0 == st->n0)
-		return -1;
-	snprint(path, sizeof(path), ".git/objects/%s", st->d0[st->l0].name);
-	st->inpack = 0;
-	if(strcmp(st->d0[st->l0].name, "pack") == 0)
-		st->inpack = 1;
-	free(st->d1);
-	st->l1 = 0;
-	st->d1 = nil;
-	if((st->n1 = slurpdir(path, &st->d1)) == -1)
-		return -1;
-	st->l0++;
-	return 0;
-}
-
-static int
-objgen1(Dir *d, Ols *st, vlong mtime)
-{
-	char name[64];
-	Object *o;
-	Hash h;
-
-	while(1){
-		if(st->inpack){
-			if(st->lp < st->np){
-				if(read(st->pfd, h.h, sizeof(h.h)) == -1)
-					return -1;
-				if((o = readobject(h)) == nil)
-					return -1;
-				obj2dir(d, o, Qobject, mtime);
-				st->lp++;
-				st->oprev = o;
-				return 0;
-			}
-			if(nextpack(st) == -1 && nextdir(st) == -1)
-				return -1;
-		}else{
-			if(st->l1 < st->n1){
-				snprint(name, sizeof(name), "%s%s", st->pfx, st->d1[st->l1].name);
-				if(hparse(&h, name) == -1)
-					return -1;
-				if((o = readobject(h)) == nil)
-					return -1;
-				obj2dir(d, o, Qobject, mtime);
-				st->l1++;
-				st->oprev = o;
-				return 0;
-			}
-			if(nextdir(st) == -1)
-				return -1;
-		}
-	}
-}
 
 static int
 objgen(int i, Dir *d, void *p)
 {
 	Gitaux *aux;
-	Ols *st;
+	Object *o;
+	Ols *ols;
+	Hash h;
 
 	aux = p;
-	if(!aux->ols){
-		aux->ols = emalloc(sizeof(Ols));
-		olsinit(aux->ols);
-	}
-	st = aux->ols;
+	if(!aux->ols)
+		aux->ols = mkols();
+	ols = aux->ols;
+	o = nil;
 	/* We tried to sent it, but it didn't fit */
-	if(st->oprev && i == st->last - 1){
-		obj2dir(d, st->oprev, Qobject, aux->mtime);
-		st->oprev = nil;
+	if(aux->obj && ols->idx == i + 1){
+		obj2dir(d, aux->obj, Qobject, aux->mtime);
 		return 0;
 	}
-	/* We restarted */
-	if(i < st->last){
-		st->last = 0;
-		free(st->d0);
-		free(st->d1);
-		close(st->pfd);
-		if(olsinit(st) == -1)
+	while(ols->idx <= i){
+		if(olsnext(ols, &h) == -1)
+			return -1;
+		if((o = readobject(h)) == nil)
 			return -1;
 	}
-
-	while  (st->last++ < i)
-		if (objgen1(d, st, aux->mtime) == -1)
-			goto done;
-
-	if(objgen1(d, st,  aux->mtime) == 0)
+	if(o != nil){
+		obj2dir(d, o, Qobject, aux->mtime);
+		unref(aux->obj);
+		aux->obj = ref(o);
 		return 0;
-done:
-	free(st->d0);
-	free(st->d1);
-	st->d0 = nil;
-	st->d1 = nil;
+	}
 	return -1;
 }
 
@@ -684,14 +538,11 @@ gitdestroyfid(Fid *f)
 {
 	Gitaux *aux;
 
+	print("destroying fid %ld (%p)\n", f->fid, f);
 	if((aux = f->aux) == nil)
 		return;
-	/* 
-	 * olsinit frees the contents of ols, so we
-	 * can abuse it to reset the thing.
-	 */
-	olsinit(aux->ols);
 	unref(aux->obj);
+	olsfree(aux->ols);
 	free(aux->refpath);
 	free(aux->ols);
 	free(aux);
@@ -867,15 +718,16 @@ main(int argc, char **argv)
 {
 	gitinit();
 	ARGBEGIN{
-	case 'd':	chatty9p++;		break;
-	case 'm':	mtpt = EARGF(usage());	break;
+	case 'd':	chatty9p++;	break;
+	default:	usage();	break;
 	}ARGEND;
 	if(argc != 0)
 		usage();
 
+	mainmem->flags |= POOL_PARANOIA|POOL_ANTAGONISM|POOL_DEBUGGING;
 	username = getuser();
 	branches = emalloc(sizeof(char*));
 	branches[0] = nil;
-	postmountsrv(&gitsrv, nil, mtpt, MCREATE);
+	postmountsrv(&gitsrv, nil, "/mnt/git", MCREATE);
 	exits(nil);
 }
