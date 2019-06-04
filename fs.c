@@ -4,7 +4,6 @@
 #include <fcall.h>
 #include <thread.h>
 #include <9p.h>
-#include <pool.h>
 
 #include "git.h"
 
@@ -40,14 +39,17 @@ enum {
 
 typedef struct Gitaux Gitaux;
 struct Gitaux {
+	int	 npath;
 	Qid	 path[Npath];
 	Object  *opath[Npath];
-	int	 npath;
-	Object	*obj;
 	char 	*refpath;
-	Ols	*ols;
 	int	 qdir;
 	vlong	 mtime;
+	Object	*obj;
+
+	/* For listing object dir */
+	Ols	*ols;
+	Object	*olslast;
 };
 
 char *qroot[] = {
@@ -249,8 +251,8 @@ objgen(int i, Dir *d, void *p)
 	ols = aux->ols;
 	o = nil;
 	/* We tried to sent it, but it didn't fit */
-	if(aux->obj && ols->idx == i + 1){
-		obj2dir(d, aux->obj, Qobject, aux->mtime);
+	if(aux->olslast && ols->idx == i + 1){
+		obj2dir(d, aux->olslast, Qobject, aux->mtime);
 		return 0;
 	}
 	while(ols->idx <= i){
@@ -261,8 +263,8 @@ objgen(int i, Dir *d, void *p)
 	}
 	if(o != nil){
 		obj2dir(d, o, Qobject, aux->mtime);
-		unref(aux->obj);
-		aux->obj = ref(o);
+		unref(aux->olslast);
+		aux->olslast = ref(o);
 		return 0;
 	}
 	return -1;
@@ -521,14 +523,22 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 static char*
 gitclone(Fid *o, Fid *n)
 {
-	Gitaux *aux;
+	Gitaux *aux, *oaux;
+	int i;
 
+	oaux = o->aux;
 	aux = emalloc(sizeof(Gitaux));
-	memcpy(aux, o->aux, sizeof(Gitaux));
-	if(aux->obj)
-		ref(aux->obj);
-	aux->refpath = nil;
-	aux->ols = nil;
+	aux->npath = oaux->npath;
+	for(i = 0; i < aux->npath; i++){
+		aux->path[i] = oaux->path[i];
+		aux->opath[i] = oaux->opath[i];
+		if(aux->opath[i])
+			ref(aux->opath[i]);
+	}
+	if(oaux->obj)
+		aux->obj = ref(oaux->obj);
+	aux->qdir = oaux->qdir;
+	aux->mtime = oaux->mtime;
 	n->aux = aux;
 	return nil;
 }
@@ -537,9 +547,12 @@ static void
 gitdestroyfid(Fid *f)
 {
 	Gitaux *aux;
+	int i;
 
 	if((aux = f->aux) == nil)
 		return;
+	for(i = 0; i < aux->npath; i++)
+		unref(aux->opath[i]);
 	free(aux->refpath);
 	olsfree(aux->ols);
 	unref(aux->obj);
@@ -722,7 +735,6 @@ main(int argc, char **argv)
 	if(argc != 0)
 		usage();
 
-	mainmem->flags |= POOL_PARANOIA|POOL_ANTAGONISM|POOL_DEBUGGING;
 	username = getuser();
 	branches = emalloc(sizeof(char*));
 	branches[0] = nil;
