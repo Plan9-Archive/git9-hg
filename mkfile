@@ -10,7 +10,7 @@ TARG=\
 	save\
 	conf\
 	query\
-	walk
+	walk\
 
 RC=\
 	add\
@@ -21,11 +21,13 @@ RC=\
 	diff\
 	init\
 	log\
+	merge\
 	pull\
 	push\
 
 OFILES=\
 	objset.$O\
+	ols.$O\
 	pack.$O\
 	util.$O\
 	ref.$O
