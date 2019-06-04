@@ -358,7 +358,6 @@ readodelta(Biobuf *f, Object *o, vlong nd, vlong p, int flag)
 		goto error;
 	if(d == nil || n != nd)
 		goto error;
-	print("offset delta at %lld", p - r);
 	if(Bseek(f, p - r, 0) == -1)
 		goto error;
 	if(readpacked(f, &b, flag) == -1)
