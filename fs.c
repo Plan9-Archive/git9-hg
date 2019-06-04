@@ -349,7 +349,6 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 			w = readobject(o->tree->ent[i].h);
 			if(!w)
 				die("could not read object %H (%s): %r", o->tree->ent[i].h, o->tree->ent[i].name);
-			aux->obj = readobject(o->tree->ent[i].h);
 			q->type = (w->type == GTree) ? QTDIR : 0;
 			q->path = QPATH(w->id, qdir);
 			aux->obj = w;
@@ -420,6 +419,7 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 {
 	char path[128];
 	Gitaux *aux;
+	Object *o;
 	char *e;
 	Dir *d;
 	Hash h;
@@ -432,7 +432,10 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 		if(aux->npath > 1)
 			aux->npath--;
 		*q = aux->path[aux->npath - 1];
-		aux->obj = aux->opath[aux->npath - 1];
+		o = ref(aux->opath[aux->npath - 1]);
+		if(aux->obj)
+			unref(aux->obj);
+		aux->obj = o;
 		fid->qid = *q;
 		return nil;
 	}
@@ -514,7 +517,8 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 	}
 
 	aux->path[aux->npath] = *q;
-	aux->opath[aux->npath] = aux->obj;
+	if(aux->obj)
+		aux->opath[aux->npath] = ref(aux->obj);
 	aux->npath++;
 	fid->qid = *q;
 	return e;

@@ -1,4 +1,4 @@
-#!/bin/rc -ex
+#!/bin/rc
 
 rfork en
 
@@ -24,7 +24,7 @@ fn update{
 fn usage{
 	echo 'usage: $argv0 [-a] [-u upstream] [-b branch]' >[1=2]
 	echo '	-u up:	pull from upstream "up" (default: origin)' >[1=2]
-	echo '	-f:	fetch without updating working copy >[1=2]
+	echo '	-f:	fetch without updating working copy' >[1=2]
 	exit usage
 }
 
@@ -46,7 +46,7 @@ if(! test -e /mnt/git/ctl)
 url=`{git/conf 'remote "'$upstream'".url'}
 branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 dir=/mnt/git/branch/$branch/tree
-if(! git/walk -c){
+if(! git/walk -q){
 	echo $status
 	echo 'repository is dirty: commit before pulling' >[1=2]
 	exit 'dirty'
