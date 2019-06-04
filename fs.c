@@ -722,9 +722,8 @@ Srv gitsrv = {
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-d] [-m mtpt]\n", argv0);
+	fprint(2, "usage: %s [-d]\n", argv0);
 	fprint(2, "\t-d:	debug\n");
-	fprint(2, "\t-m mp:	mount on mountpoint'mp'\n");
 	exits("usage");
 }
 
