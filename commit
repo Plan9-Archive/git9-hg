@@ -43,6 +43,7 @@ fn editmsg{
 	echo '' > $msgfile.tmp
 	echo '# Commit message goes here.' >> $msgfile.tmp
 	echo '# Author: '$name' <'$email'>' >> $msgfile.tmp
+	git/walk | grep -v '^T' | sed 's/^/#	/g' >> $msgfile.tmp
 	sam $msgfile.tmp
 	if(! test -s $msgfile.tmp || ~ `{wc -l <{grep -v '^[ 	]*[\n#]' $msgfile.tmp}} 0){
 		echo 'cancelling commit: empty message' >[1=2]
@@ -86,8 +87,7 @@ if(! cd `{git/conf -r})
 if(! test -e /mnt/git/ctl)
 	git/fs
 mkdir -p .git/refs
-git/walk| awk '/^[^T]/{exit "dirty"}'
-if(! ~ $status *dirty*){
+if(git/walk -q){
 	echo no changes to commit >[1=2]
 	exit clean
 }
@@ -101,8 +101,6 @@ if(! ~ $status *dirty*){
 	cleanup
 }
 st=$status
-if(~ $st '')
-	echo $hash
 if not{
 	echo 'could not commit:' $st >[1=2]
 	exit $st
