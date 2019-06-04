@@ -538,7 +538,6 @@ gitdestroyfid(Fid *f)
 {
 	Gitaux *aux;
 
-	print("destroying fid %ld (%p)\n", f->fid, f);
 	if((aux = f->aux) == nil)
 		return;
 	unref(aux->obj);
