@@ -146,23 +146,24 @@ findroot(void)
 int
 sameqid(char *f, char *qf)
 {
-	char qs[64], fqs[64], *q;
+	char indexqid[64], fileqid[64], *p;
 	Dir *d;
 	int fd, n;
 
 	if((fd = open(qf, OREAD)) == -1)
 		return -1;
-	if((n = readn(fd, fqs, sizeof(fqs) - 1)) == -1)
+	if((n = readn(fd, indexqid, sizeof(indexqid) - 1)) == -1)
 		return -1;
+	indexqid[n] = 0;
 	close(fd);
-	fqs[n] = 0;
-	q = strtok(fqs, " \t\n\r");
+	if((p = strpbrk(indexqid, "  \t\n\r")) != nil)
+		*p = 0;
 
 	if((d = dirstat(f)) == nil)
 		return -1;
-	snprint(qs, sizeof(qs), "%ullx.%uld.%.2uhhx",
+	snprint(fileqid, sizeof(fileqid), "%ullx.%uld.%.2uhhx",
 	    d->qid.path, d->qid.vers, d->qid.type);
-	if(strcmp(qs, q) == 0)
+	if(strcmp(indexqid, fileqid) == 0)
 		return 0;
 	return -1;
 }

@@ -33,6 +33,6 @@ for(f in $files){
 	idx=.git/index9/tracked/$f
 	mkdir -p `{basename -d $f}
 	mkdir -p `{basename -d $idx}
-	walk -eq $f > $idx
 	cp $tree/$f $f
+	walk -eq $f > $idx
 }
