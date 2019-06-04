@@ -540,10 +540,9 @@ gitdestroyfid(Fid *f)
 
 	if((aux = f->aux) == nil)
 		return;
-	unref(aux->obj);
-	olsfree(aux->ols);
 	free(aux->refpath);
-	free(aux->ols);
+	olsfree(aux->ols);
+	unref(aux->obj);
 	free(aux);
 }
 
