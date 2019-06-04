@@ -52,5 +52,5 @@ if(! git/walk -q){
 	exit 'dirty'
 }
 update $upstream $url $dir
-if(~ fetch '')
+if(~ $fetch '')
 	git/checkout $branch

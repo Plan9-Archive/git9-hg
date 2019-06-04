@@ -1,13 +1,13 @@
-#!/bin/rc -e
+#!/bin/rc -xe
 
 rfork en
 
-files=$*
-pfx=`{git/conf -p}
 nl='
 '
-if(~ $#* 0)
-	files=`$nl{git/walk -q}
+files=$*
+branch=HEAD
+if(~ $#files 0)
+	files=`$nl{git/walk -c}
 if(~ $#files 0)
 	exit
 
@@ -16,8 +16,16 @@ if(! cd `{git/conf -r}){
 	exit notgit
 }
 
+while(~ $1 -* && ! ~ $1 --){
+	switch($1){
+	case -b; branch=$1; shift
+	case *; usage
+	}
+	shift
+}
+
 git/fs
-tree=/mnt/git/HEAD/tree
+tree=/mnt/git/$branch/tree
 rm -rf .git/index9/tracked/^$files
 rm -rf .git/index9/removed/^$files
 rm -f $files
@@ -25,6 +33,6 @@ for(f in $files){
 	idx=.git/index9/tracked/$f
 	mkdir -p `{basename -d $f}
 	mkdir -p `{basename -d $idx}
-	walk -eq $f > $addpath
+	walk -eq $f > $idx
 	cp $tree/$f $f
 }
