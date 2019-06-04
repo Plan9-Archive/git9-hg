@@ -3,8 +3,6 @@
 #include <ctype.h>
 #include "git.h"
 
-typedef _Ols Ols;
-
 enum {
 	Sinit,
 	Siter,
@@ -139,7 +137,7 @@ mkols(void)
 }
 
 void
-freeols(Ols *ols)
+olsfree(Ols *ols)
 {
 	if(ols == nil)
 		return;
@@ -155,13 +153,17 @@ int
 olsnext(Ols *ols, Hash *h)
 {
 	if(ols->stage == 0){
-		if(olsreadloose(ols, h) != -1)
+		if(olsreadloose(ols, h) != -1){
+			ols->idx++;
 			return 0;
+		}
 		ols->stage++;
 	}
 	if(ols->stage == 1){
-		if(olsreadpacked(ols, h) != -1)
+		if(olsreadpacked(ols, h) != -1){
+			ols->idx++;
 			return 0;
+		}
 		ols->stage++;
 	}
 	return -1;

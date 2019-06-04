@@ -14,15 +14,6 @@ enum {
 Object *indexed;
 char *clonebranch;
 
-void
-usage(void)
-{
-	fprint(2, "usage: %s [-V] [-b br] remote\n", argv0);
-	fprint(2, "\t-b br:	only fetch matching branch 'br'\n");
-	fprint(2, "remote:	fetch from this repository\n");
-	exits("usage");
-}
-
 static int
 readpkt(int fd, char *buf, int nbuf)
 {
@@ -346,6 +337,15 @@ fetchpack(int fd, char *packtmp)
 	if(rename(packtmp, idxtmp, h) == -1)
 		sysfatal("could not rename indexed pack: %r");
 	return 0;
+}
+
+void
+usage(void)
+{
+	fprint(2, "usage: %s [-b br] remote\n", argv0);
+	fprint(2, "\t-b br:	only fetch matching branch 'br'\n");
+	fprint(2, "remote:	fetch from this repository\n");
+	exits("usage");
 }
 
 void
