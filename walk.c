@@ -26,6 +26,7 @@ char branch[256] = "/mnt/git/HEAD/tree";
 char *rstr = "R ";
 char *tstr = "T ";
 char *dstr = "D ";
+char *astr = "A ";
 
 int
 seen(Dir *dir)
@@ -113,12 +114,12 @@ dedup(Wres *r)
 	int i, o;
 
 	o = 0;
+	i = 0;
 	qsort(r->path, r->npath, sizeof(r->path[0]), cmp);
-	for(i = 0; i < r->npath; i++){
-		if(strcmp(r->path[o], r->path[i]) != 0){
-			o++;
-			r->path[o] = r->path[i];
-		}
+	while(i < r->npath){
+		r->path[o++] = r->path[i++];
+		while(i < r->npath && strcmp(r->path[o], r->path[i]) == 0)
+			i++;
 	}
 	r->npath = o;
 }
@@ -176,7 +177,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char rmpath[256], tpath[256], *p, *b, *dirty;
+	char rmpath[256], tpath[256], bpath[256], *p, *b, *dirty;
 	Wres r;
 	int i;
 
@@ -193,6 +194,7 @@ main(int argc, char **argv)
 		rstr = "";
 		tstr = "";
 		dstr = "";
+		astr = "";
 		break;
 	default:
 		usage();
@@ -217,8 +219,9 @@ main(int argc, char **argv)
 			sysfatal("overlong path");
 		if(snprint(tpath, sizeof(tpath), TDIR"/%s", p) >= sizeof(tpath))
 			sysfatal("overlong path");
+		if(snprint(bpath, sizeof(bpath), "%s/%s", branch, p) >= sizeof(bpath))
+			sysfatal("overlong path");
 		if(access(p, AEXIST) != 0 || access(rmpath, AEXIST) == 0){
-			print("%s: nope: %r\n", p);
 			dirty = "dirty";
 			if(!quiet)
 				print("%s%s\n", rstr, p);
@@ -226,6 +229,10 @@ main(int argc, char **argv)
 			dirty = "dirty";
 			if(!quiet)
 				print("%s%s\n", dstr, p);
+		}else if(access(bpath, AEXIST) == -1) {
+			dirty = "dirty";
+			if(!quiet)
+				print("%s%s\n", astr, p);
 		}else{
 			if(!quiet)
 				print("%s%s\n", tstr, p);
