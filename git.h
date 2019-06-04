@@ -4,15 +4,16 @@
 #include <flate.h>
 #include <regexp.h>
 
-typedef struct Hash Hash;
-typedef struct Commitdat Commitdat;
-typedef struct Treedat Treedat;
-typedef struct Object Object;
-typedef struct Objset Objset;
-typedef struct Pack Pack;
-typedef struct Buf Buf;
-typedef struct Dirent Dirent;
-typedef struct Idxent Idxent;
+typedef struct Hash	Hash;
+typedef struct Cinfo	Cinfo;
+typedef struct Tinfo	Tinfo;
+typedef struct Object	Object;
+typedef struct Objset	Objset;
+typedef struct Pack	Pack;
+typedef struct Buf	Buf;
+typedef struct Dirent	Dirent;
+typedef struct Idxent	Idxent;
+typedef struct _Ols	_Ols;
 
 enum {
 	/* 5k objects should be enough */
@@ -37,6 +38,24 @@ enum {
 	Ccache	= 1 << 2,
 	Cexist	= 1 << 3,
 	Cparsed	= 1 << 5,
+};
+
+struct _Ols {
+	int fd;
+	int state;
+	int stage;
+
+	Dir *top;
+	int ntop;
+	int topidx;
+	Dir *loose;
+	int nloose;
+	int looseidx;
+	Dir *pack;
+	int npack;
+	int packidx;
+	int nent;
+	int entidx;
 };
 
 struct Hash {
@@ -73,18 +92,18 @@ struct Object {
 	int	parsed;
 
 	union {
-		Commitdat *commit;
-		Treedat *tree;
+		Cinfo *commit;
+		Tinfo *tree;
 	};
 };
 
-struct Treedat {
+struct Tinfo {
 	/* Tree */
 	Dirent	*ent;
 	int	nent;
 };
 
-struct Commitdat {
+struct Cinfo {
 	/* Commit */
 	Hash	*parent;
 	int	nparent;
@@ -184,6 +203,11 @@ void	osinit(Objset *);
 void	osadd(Objset *, Object *);
 int	oshas(Objset *, Object *);
 Object	*osfind(Objset *, Hash);
+
+/* object listing */
+_Ols	*mkols(void);
+int	olsnext(_Ols *, Hash *);
+void	olsfree(_Ols *);
 
 /* util functions */
 void	*emalloc(ulong);
