@@ -20,8 +20,16 @@ struct Wres {
 	int	pathsz;
 };
 
+enum {
+	Rflg	= 1 << 0,
+	Tflg	= 1 << 1,
+	Dflg	= 1 << 2,
+	Aflg	= 1 << 3,
+};
+
 Cache seencache[NCACHE];
 int quiet;
+int printflg;
 char branch[256] = "/mnt/git/HEAD/tree";
 char *rstr = "R ";
 char *tstr = "T ";
@@ -171,7 +179,7 @@ sameqid(char *f, char *qf)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-q]\n", argv0);
+	fprint(2, "usage: %s [-qbc] [-f filt]\n", argv0);
 	exits("usage");
 }
 
@@ -189,13 +197,23 @@ main(int argc, char **argv)
 	case 'b':
 		b = EARGF(usage());
 		if(snprint(branch, sizeof(branch), BFMT, b) >= sizeof(branch))
-			sysfatal("overlong branch name");			
+			sysfatal("overlong branch name");
 		break;
 	case 'c':
 		rstr = "";
 		tstr = "";
 		dstr = "";
 		astr = "";
+		break;
+	case 'f':
+		for(p = EARGF(usage()); *p; p++)
+			switch(*p){
+			case 'T':	printflg |= Tflg;	break;
+			case 'A':	printflg |= Aflg;	break;
+			case 'D':	printflg |= Dflg;	break;
+			case 'R':	printflg |= Rflg;	break;
+			default:	usage();		break;
+		}
 		break;
 	default:
 		usage();
@@ -206,6 +224,8 @@ main(int argc, char **argv)
 	r.path = nil;
 	r.npath = 0;
 	r.pathsz = 0;
+	if(printflg == 0)
+		printflg = Tflg | Aflg | Dflg | Rflg;
 	if(access(branch, AEXIST) == 0 && readpaths(&r, branch, "") == -1)
 		sysfatal("read branch files: %r");
 	if(access(TDIR, AEXIST) == 0 && readpaths(&r, TDIR, "") == -1)
@@ -224,18 +244,18 @@ main(int argc, char **argv)
 			sysfatal("overlong path");
 		if(access(p, AEXIST) != 0 || access(rmpath, AEXIST) == 0){
 			dirty = "dirty";
-			if(!quiet)
+			if(!quiet && (printflg & Rflg))
 				print("%s%s\n", rstr, p);
-		}else if(sameqid(p, tpath) != 0){
+		}else if(sameqid(p, tpath) == -1){
 			dirty = "dirty";
-			if(!quiet)
+			if(!quiet && (printflg & Dflg))
 				print("%s%s\n", dstr, p);
 		}else if(access(bpath, AEXIST) == -1) {
 			dirty = "dirty";
-			if(!quiet)
+			if(!quiet && (printflg & Aflg))
 				print("%s%s\n", astr, p);
 		}else{
-			if(!quiet)
+			if(!quiet && (printflg & Tflg))
 				print("%s%s\n", tstr, p);
 		}
 	}
