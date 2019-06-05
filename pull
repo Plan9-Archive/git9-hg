@@ -2,6 +2,9 @@
 
 rfork en
 
+nl='
+'
+
 fn update{
 	branch=$1
 	url=$2
@@ -52,5 +55,7 @@ if(! git/walk -q){
 	exit 'dirty'
 }
 update $upstream $url $dir
-if(~ $fetch '')
-	git/checkout $branch
+if(~ $fetch ''){
+	rm -f `$nl{git/walk -cfT}
+	@{builtin cd /mnt/git/HEAD/tree && tar cif /fd/1 .} | @{tar xf /fd/0}
+}
