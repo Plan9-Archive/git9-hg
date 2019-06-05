@@ -41,6 +41,6 @@ for(f in $*){
 	delpath=.git/index9/$del/$rel/$f
 	mkdir -p `{basename -d $addpath}
 	mkdir -p `{basename -d $delpath}
-	walk -eq $f > $addpath
+	touch $addpath
 	rm -f $delpath
 }

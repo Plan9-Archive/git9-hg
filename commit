@@ -2,6 +2,9 @@
 
 rfork ne
 
+nl='
+'
+
 fn whoami{
 	name=`{git/conf user.name}
 	email=`{git/conf user.email}
@@ -36,14 +39,14 @@ fn findbranch{
 		echo invalid branch $branch >[1=2]
 		exit badbranch
 	}
-		
+
 }
 
 fn editmsg{
 	echo '' > $msgfile.tmp
 	echo '# Commit message goes here.' >> $msgfile.tmp
 	echo '# Author: '$name' <'$email'>' >> $msgfile.tmp
-	git/walk | grep -v '^T' | sed 's/^/#	/g' >> $msgfile.tmp
+	echo '#' $nl'# ' ^ `$nl{git/walk -fADR} >> $msgfile.tmp
 	sam $msgfile.tmp
 	if(! test -s $msgfile.tmp || ~ `{wc -l <{grep -v '^[ 	]*[\n#]' $msgfile.tmp}} 0){
 		echo 'cancelling commit: empty message' >[1=2]
@@ -68,12 +71,21 @@ fn commit{
 	hash=`{git/save -n $"name -e $"email  -m $"msg $pflags}
 	st=$status
 	if(~ $hash '')
-		exit $st
+		exit nocommit
 }
 
 fn update{
 	mkdir -p `{basename -d $refpath}
 	echo $hash > $refpath
+	for(f in `$nl{git/walk -cfAD}){
+		mkdir -p `{basename -d $f}
+		walk -eq $f > .git/index9/tracked/$f
+	}
+	for(f in `$nl{git/walk -cfR}){
+		rm -f .git/index9/tracked/$f
+		rm -f .git/index9/removed/$f
+	}
+
 }
 
 fn cleanup{
@@ -92,6 +104,8 @@ if(git/walk -q){
 	exit clean
 }
 @{
+	flag e +
+	flag x +
 	whoami
 	findbranch
 	parents
@@ -101,7 +115,7 @@ if(git/walk -q){
 	cleanup
 }
 st=$status
-if not{
+if(! ~ $status ''){
 	echo 'could not commit:' $st >[1=2]
 	exit $st
 }

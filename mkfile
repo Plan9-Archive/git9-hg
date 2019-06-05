@@ -13,7 +13,6 @@ TARG=\
 RC=\
 	add\
 	branch\
-	checkout\
 	clone\
 	commit\
 	diff\

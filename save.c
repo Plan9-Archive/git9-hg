@@ -95,6 +95,7 @@ blobify(char *path, vlong size, Hash *bh)
 	if(readn(f, d, size) != size)
 		sysfatal("could not read blob %s: %r", path);
 	writeobj(bh, h, nh, d, size);
+	close(f);
 	free(d);
 }
 
