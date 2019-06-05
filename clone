@@ -82,7 +82,7 @@ fn clone{
 	}
 	if not{
 		echo no master branch >[1=2]
-		echo check out your code with git/checkout >[1=2]
+		echo check out your code with git/branch >[1=2]
 	}
 }
 

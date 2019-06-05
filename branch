@@ -59,8 +59,8 @@ if(! ~ $create ''){
 	}
 }
 
-echo checkout
 if(~ $stay ''){
 	echo 'ref: refs/heads/'$new > .git/HEAD
-	git/checkout
+	rm -f `$nl{git/walk -cfT}
+	@{builtin cd /mnt/git/HEAD/tree && tar cif /fd/1 .} | @{tar xf /fd/0}
 }
