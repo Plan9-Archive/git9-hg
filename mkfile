@@ -5,11 +5,9 @@ TARG=\
 	conf\
 	fetch\
 	fs\
+	query\
 	save\
 	send\
-	save\
-	conf\
-	query\
 	walk\
 
 RC=\
@@ -44,6 +42,9 @@ install:V:
 	for (i in $RC)
 		mk $MKFLAGS $i.rcinstall
 	mk $MKFLAGS /sys/lib/git/template
+
+uninstall:V:
+	rm -rf /$objtype/bin/git /sys/lib/git
 
 %.c %.h: %.y
 	$YACC $YFLAGS -D1 -d -s $stem $prereq

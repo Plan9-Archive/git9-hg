@@ -228,7 +228,8 @@ checkhash(int fd, vlong sz, Hash *hcomp)
 		nr = sizeof(buf);
 		if(sz - n - 20 < sizeof(buf))
 			nr = sz - n - 20;
-		if((r = readn(fd, buf, nr)) != nr)
+		r = readn(fd, buf, nr);
+		if(r != nr)
 			return -1;
 		st = sha1((uchar*)buf, nr, nil, st);
 		n += r;
