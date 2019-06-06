@@ -54,8 +54,9 @@ if(! git/walk -q){
 	echo 'repository is dirty: commit before pulling' >[1=2]
 	exit 'dirty'
 }
+oldfiles=`$nl{git/walk -cfT}
 update $upstream $url $dir
 if(~ $fetch ''){
-	rm -f `$nl{git/walk -cfT}
+	rm -f $oldfiles
 	@{builtin cd /mnt/git/HEAD/tree && tar cif /fd/1 .} | @{tar xf /fd/0}
 }

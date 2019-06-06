@@ -60,7 +60,7 @@ if(! ~ $create ''){
 }
 
 if(~ $stay ''){
-	echo 'ref: refs/heads/'$new > .git/HEAD
 	rm -f `$nl{git/walk -cfT}
+	echo 'ref: refs/heads/'$new > .git/HEAD
 	@{builtin cd /mnt/git/HEAD/tree && tar cif /fd/1 .} | @{tar xf /fd/0}
 }
