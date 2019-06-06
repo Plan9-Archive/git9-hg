@@ -26,6 +26,7 @@ OFILES=\
 	objset.$O\
 	pack.$O\
 	util.$O\
+	ref.$O
 
 HFILES=git.h
 

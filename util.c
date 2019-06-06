@@ -208,6 +208,19 @@ swapsuffix(char *dst, int dstsz, char *base, char *oldsuf, char *suf)
 	return l;
 }
 
+char *
+strip(char *s)
+{
+	char *e;
+
+	while(isspace(*s))
+		s++;
+	e = s + strlen(s);
+	while(e > s && isspace(*--e))
+		*e = 0;
+	return s;
+}
+
 void
 die(char *fmt, ...)
 {
