@@ -165,21 +165,8 @@ dialgit(char *host, char *port, char *path)
 	return fd;
 }
 
-char *
-strip(char *s)
-{
-	char *e;
-
-	while(isspace(*s))
-		s++;
-	e = s + strlen(s);
-	while(e > s && isspace(*--e))
-		*e = 0;
-	return s;
-}
-
 int
-resolveref(Hash *h, char *ref)
+resolveremote(Hash *h, char *ref)
 {
 	char buf[128], *s;
 	int r, f;
@@ -208,7 +195,7 @@ resolveref(Hash *h, char *ref)
 	close(f);
 
 	if(r == -1 && strstr(buf, "ref:") == buf)
-		return resolveref(h, buf + strlen("ref:"));
+		return resolveremote(h, buf + strlen("ref:"));
 	
 	return r;
 }
@@ -298,7 +285,7 @@ fetchpack(int fd, char *packtmp)
 		}	
 		if(hparse(&want[nref], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
-		if (resolveref(&have[nref], sp[1]) == -1)
+		if (resolveremote(&have[nref], sp[1]) == -1)
 			memset(&have[nref], 0, sizeof(have[nref]));
 		print("remote %s %H local %H\n", sp[1], want[nref], have[nref]);
 		nref++;

@@ -170,6 +170,7 @@ int Qfmt(Fmt*);
 void gitinit(void);
 
 /* object io */
+int	resolveref(Hash *, char *);
 Object	*readobject(Hash);
 void	parseobject(Object *);
 int	indexpack(char *, char *, Hash);
@@ -192,5 +193,6 @@ int	slurpdir(char *, Dir **);
 int	hparse(Hash *, char *);
 int	hassuffix(char *, char *);
 int	swapsuffix(char *, int, char *, char *, char *);
+char	*strip(char *);
 void	die(char *, ...);
 
