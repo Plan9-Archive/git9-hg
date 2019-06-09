@@ -40,6 +40,7 @@ install:V:
 		mk $MKFLAGS $i.install
 	for (i in $RC)
 		mk $MKFLAGS $i.rcinstall
+	cp git.1 /sys/man/1/git
 	mk $MKFLAGS /sys/lib/git/template
 
 uninstall:V:
