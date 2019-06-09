@@ -215,17 +215,20 @@ Currently, it only shows the current branch.
 /mnt/git/HEAD
 An alias for the currently checked out commit directory.
 
+.PP
 .B Git/add
 adds a file to the list of tracked files. When passed the
 .I -r
 flag, the file is removed from the list of tracked files.
 The copy of the file in the repository is left untouched.
 
+.PP
 .B Git/commit
 creates a new commit reflecting the state of the current repository.
 It takes no arguments: all files must be added or removed using git/add.
 If a file does not exist in the working directory, it is treated as though it was removed.
 
+.PP
 .B Git/branch
 is used to switch between branches.
 When passed the
@@ -241,9 +244,11 @@ When passed the
 .I -s
 option, the branch is created but the files are not checked out.
 
+.PP
 .B Git/log
 shows a history of the current branch.
 
+.PP
 .B Git/diff
 shows the differences between the currently checked out code and
 the
@@ -256,11 +261,13 @@ option, the diff is computed against
 instead of
 .I HEAD.
 
+.PP
 .B Git/merge
 takes two branches and merges them filewise using
 .I ape/diff3.
 The next commit made will be a merge commmit.
 
+.PP
 .B Git/conf
 is a tool for querying the git configuration.
 The configuration key is provided as a dotted string. Spaces
@@ -280,6 +287,7 @@ path to their
 .B git/fs
 path is printed.
 
+.PP
 .B Git/walk
 provides a tool for walking the list of tracked objects and printing their status.
 With no arguments, it prints a list of paths prefixed with the status character.
@@ -310,6 +318,7 @@ Added, does not yet exist in a commit.
 
 .SH REF SYNTAX
 
+.PP
 Refs are specified with a simple query syntax.
 A bare hash always evaluates to itself.
 Ref names are resolved to their hashes.
@@ -334,6 +343,7 @@ and descendants of
 
 .SH EXAMPLES
 
+.PP
 In order to create a new repository, run
 .B git/init:
 
