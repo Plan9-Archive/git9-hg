@@ -308,9 +308,29 @@ Removed from either working directory tracking list.
 A
 Added, does not yet exist in a commit.
 
+.SH REF SYNTAX
 
-
-.SH QUERY SYNTAX
+Refs are specified with a simple query syntax.
+A bare hash always evaluates to itself.
+Ref names are resolved to their hashes.
+The
+.B a ^
+suffix operator finds the parent of a commit.
+The
+.B a b @
+suffix operator finds the common ancestor of the previous two commits.
+The
+.B a .. b
+or
+.B a : b
+operator finds all commits between
+.B a
+and
+.B b.
+Between is defined as the set of all commits which are ancestors of
+.B b
+and descendants of
+.B a.
 
 .SH EXAMPLES
 
