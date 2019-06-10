@@ -105,7 +105,6 @@ if(git/walk -q){
 }
 @{
 	flag e +
-	flag x +
 	whoami
 	findbranch
 	parents
