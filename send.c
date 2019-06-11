@@ -4,9 +4,10 @@
 
 #include "git.h"
 
-typedef struct Objq Objq;
-typedef struct Buf Buf;
-typedef struct Compout Compout;
+typedef struct Objq	Objq;
+typedef struct Buf	Buf;
+typedef struct Compout	Compout;
+typedef struct Update	Update;
 
 struct Buf {
 	int off;
@@ -34,9 +35,17 @@ struct Objq {
 	Object *obj;
 };
 
+struct Update {
+	char	ref[128];
+	Hash	theirs;
+	Hash	ours;
+};
+
 int chatty;
 int sendall;
 char *curbranch = "refs/heads/master";
+char *removed[128];
+int nremoved;
 
 static int
 readpkt(int fd, char *buf, int nbuf)
@@ -290,29 +299,34 @@ writeobject(int fd, Object *o, DigestState **st)
 }
 
 int
-writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
+writepack(int fd, Update *upd, int nupd)
 {
 	Objset send, skip;
 	Object *o, *p;
 	Objq *q, *n, *e;
 	DigestState *st;
+	Update *u;
 	char buf[4];
 	Hash h;
 	int i;
 
 	osinit(&send);
 	osinit(&skip);
-	for(i = 0; i < nremote; i++){
-		if((o = readobject(remote[i])) == nil)
-			sysfatal("could not read %H", remote[i]);
+	for(i = 0; i < nupd; i++){
+		u = &upd[i];
+		if(hasheq(&u->theirs, &Zhash))
+			continue;
+		if((o = readobject(u->theirs)) == nil)
+			sysfatal("could not read %H", u->theirs);
 		pack(&skip, &skip, o);
 	}
 
 	q = nil;
 	e = nil;
-	for(i = 0; i < nlocal; i++){
-		if((o = readobject(local[i])) == nil)
-			sysfatal("could not read object %H", local[i]);
+	for(i = 0; i < nupd; i++){
+		u = &upd[i];
+		if((o = readobject(u->ours)) == nil)
+			sysfatal("could not read object %H", u->ours);
 
 		n = emalloc(sizeof(Objq));
 		n->obj = o;
@@ -360,20 +374,77 @@ writepack(int fd, Hash *remote, int nremote, Hash *local, int nlocal)
 	return 0;
 }
 
+Update*
+findref(Update *u, int nu, char *ref)
+{
+	int i;
+
+	for(i = 0; i < nu; i++)
+		if(strcmp(u[i].ref, ref) == 0)
+			return &u[i];
+	return nil;
+}
+
+int
+readours(Update **ret)
+{
+	Update *u, *r;
+	Hash *h;
+	int nd, nu, i;
+	char *pfx;
+	Dir *d;
+
+	nu = 0;
+	if(!sendall){
+		u = emalloc((nremoved + 1)*sizeof(Update));
+		if(snprint(u[nu].ref, sizeof(u[nu].ref), "%s", curbranch) >= sizeof(u[nu].ref))
+			sysfatal("overlong ref %s", curbranch);
+		if(resolveref(&u[nu].ours, curbranch) == -1)
+			sysfatal("broken branch %s", curbranch);
+		nu++;
+	}else{
+		if((nd = slurpdir(".git/refs/heads", &d)) == -1)
+			sysfatal("read branches: %r");
+		u = emalloc((nremoved + nd)*sizeof(Update));
+		for(i = 0; i < nd; i++){
+			if(snprint(u->ref, sizeof(u->ref), "refs/heads/%s", d[nu].name) >= sizeof(u->ref))
+				sysfatal("overlong ref %s", d[nu].name);
+			if(resolveref(&u[nu].ours, u[nu].ref) == -1)
+				continue;
+			nu++;
+		}
+	}
+	for(i = 0; i < nremoved; i++){
+		pfx = "refs/heads/";
+		if(strstr(removed[i], "heads/") == removed[i])
+			pfx = "refs/";
+		if(strstr(removed[i], "refs/heads/") == removed[i])
+			pfx = "";
+		if(snprint(u[nu].ref, sizeof(u[nu].ref), "%s%s", pfx, removed[i]) >= sizeof(u[nu].ref))
+			sysfatal("overlong ref %s", removed[i]);
+		h = &u[nu].ours;
+		if((r = findref(u, nu, u[nu].ref)) != nil)
+			h = &r->ours;
+		else
+			nu++;
+		memcpy(h, &Zhash, sizeof(Hash));
+	}
+
+	*ret = u;
+	return nu;	
+}
+
 int
 sendpack(int fd)
 {
 	char buf[65536];
 	char *sp[3];
-	Hash zero;
-	Hash theirs[64];
-	Hash ours[64];
-	char refnames[64][64];
-	int i, n, nref, updating;
+	Update *upd, *u;
+	int i, n, nupd, updating;
 
-	nref = 0;
-	memset(&zero, 0, sizeof(Hash));
-	for(i = 0; i < nelem(theirs); i++){
+	if((nupd = readours(&upd)) == -1)
+		sysfatal("read refs: %r");
+	while(1){
 		n = readpkt(fd, buf, sizeof(buf));
 		if(n == -1)
 			return -1;
@@ -384,39 +455,42 @@ sendpack(int fd)
 
 		if(getfields(buf, sp, nelem(sp), 1, " \t\n\r") != 2)
 			sysfatal("invalid ref line %.*s", utfnlen(buf, n), buf);
-		if(resolveref(&ours[nref], sp[1]) == -1)
+		if((u = findref(upd, nupd, sp[1])) == nil)
 			continue;
-		if(hparse(&theirs[nref], sp[0]) == -1)
+		if(hparse(&u->theirs, sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
-		if(snprint(refnames[nref], sizeof(refnames[nref]), sp[1]) >= sizeof(refnames[i]))
+		if(snprint(u->ref, sizeof(u->ref), sp[1]) >= sizeof(u->ref))
 			sysfatal("overlong ref %s", sp[1]);
-		nref++;
 	}
 
 	updating = 0;
-	for(i = 0; i < nref; i++){
-		if(sendall || strcmp(curbranch, refnames[i]) == 0){
-			if(hasheq(&theirs[i], &ours[i]))
-				break;
-			print("%s: %H => %H\n", refnames[i], theirs[i], ours[i]);
-			if(readobject(theirs[i]) == nil){
-				fprint(2, "remote has diverged: pull and try again\n");
-				updating = 0;
-				break;
-			}
-			n = snprint(buf, sizeof(buf), "%H %H %s",
-				theirs[i], ours[i], refnames[i]);
-			if(n >= sizeof(buf))
-				sysfatal("overlong update");
-			if(writepkt(fd, buf, n) == -1)
-				sysfatal("unable to send update pkt");
-			updating = 1;
+	for(i = 0; i < nupd; i++){
+		u = &upd[i];
+		if(!hasheq(&u->theirs, &Zhash) && readobject(u->theirs) == nil){
+			fprint(2, "remote has diverged: pull and try again\n");
+			updating = 0;
+			break;
 		}
+		if(hasheq(&u->ours, &Zhash)){
+			print("%s: deleting\n", u->ref);
+			continue;
+		}
+		if(hasheq(&u->theirs, &u->ours)){
+			print("%s: up to date\n", u->ref);
+			continue;
+		}
+		print("%s: %H => %H\n", u->ref, u->theirs, u->ours);
+		n = snprint(buf, sizeof(buf), "%H %H %s", u->theirs, u->ours, u->ref);
+		if(n >= sizeof(buf))
+			sysfatal("overlong update");
+		if(writepkt(fd, buf, n) == -1)
+			sysfatal("unable to send update pkt");
+		updating = 1;
 	}
 	flushpkt(fd);
-	if(!updating)
-		sysfatal("nothing to do here");
-	return writepack(fd, theirs, nref, ours, nref);
+	if(updating)
+		return writepack(fd, upd, nupd);
+	return 0;
 }
 
 void
@@ -437,6 +511,11 @@ main(int argc, char **argv)
 	default:	usage();	break;
 	case 'a':	sendall++;	break;
 	case 'd':	chatty++;	break;
+	case 'r':
+		if(nremoved == nelem(removed))
+			sysfatal("too many deleted branches");
+		removed[nremoved++] = EARGF(usage());
+		break;
 	case 'b':
 		curbranch = smprint("refs/%s", EARGF(usage()));
 		break;
@@ -460,6 +539,6 @@ main(int argc, char **argv)
 	if(fd == -1)
 		sysfatal("could not dial %s:%s: %r", proto, host);
 	if(sendpack(fd) == -1)
-		sysfatal("fetch failed: %r");
+		sysfatal("send failed: %r");
 	exits(nil);
 }
