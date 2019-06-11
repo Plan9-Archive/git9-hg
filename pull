@@ -58,5 +58,13 @@ oldfiles=`$nl{git/walk -cfT}
 update $upstream $url $dir
 if(~ $fetch ''){
 	rm -f $oldfiles
-	@{builtin cd /mnt/git/HEAD/tree && tar cif /fd/1 .} | @{tar xf /fd/0}
+	tree=/mnt/git/HEAD/tree
+	@{builtin cd $tree && tar cif /fd/1 .} | @{tar xf /fd/0}
+	for(f in `$nl{walk -f $tree | sed 's@^'$tree'/*@@'}){
+		if(! ~ $#f 0){
+			idx=.git/index9/tracked/$f
+			mkdir -p `{basename -d $idx}
+			walk -eq $f > $idx
+		}
+	}
 }
