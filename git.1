@@ -87,6 +87,10 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 .B -b
 .I branch
 ]
+[
+.B -r
+.I branch
+]
 .PP
 .B git/query
 [
@@ -167,17 +171,20 @@ stripped off if present.
 .B Git/push
 is used to push the current changes to a remote repository.
 When no arguments are provided, the remote repository is taken from
-the origin configued in
+the origin configured in
 .I .git/config,
 and only the changes on the current branch are pushed.
 When passed the
 .I -a
 option, all branches are pushed.
-When pased the
+When passed the
 .I -u upstream
 option, the changed are pushed to
 .I upstream
 instead of the configured origin.
+When given the
+.I -r
+option, the branch is deleted from origin, instead of updated.
 
 .B Git/pull
 behaves in a similar manner to git/push, however it gets changes from
