@@ -140,8 +140,7 @@ findroot(void)
 	if((getwd(path, sizeof(path))) == nil)
 		sysfatal("could not get wd: %r");
 	while((p = strrchr(path, '/')) != nil){
-		if(snprint(buf, sizeof(buf), "%s/.git", path) >= sizeof(buf))
-			sysfatal("path too long");
+		snprint(buf, sizeof(buf), "%s/.git", path);
 		if(access(buf, AEXIST) == 0){
 			chdir(path);
 			return;
@@ -186,7 +185,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char rmpath[256], tpath[256], bpath[256], *p, *b, *dirty;
+	char rmpath[256], tpath[256], bpath[256], *p, *dirty;
 	Wres r;
 	int i;
 
@@ -195,9 +194,7 @@ main(int argc, char **argv)
 		quiet++;
 		break;
 	case 'b':
-		b = EARGF(usage());
-		if(snprint(branch, sizeof(branch), BFMT, b) >= sizeof(branch))
-			sysfatal("overlong branch name");
+		snprint(branch, sizeof(branch), BFMT, EARGF(usage()));
 		break;
 	case 'c':
 		rstr = "";
@@ -236,12 +233,9 @@ main(int argc, char **argv)
 
 	for(i = 0; i < r.npath; i++){
 		p = r.path[i];
-		if(snprint(rmpath, sizeof(rmpath), RDIR"/%s", p) >= sizeof(rmpath))
-			sysfatal("overlong path");
-		if(snprint(tpath, sizeof(tpath), TDIR"/%s", p) >= sizeof(tpath))
-			sysfatal("overlong path");
-		if(snprint(bpath, sizeof(bpath), "%s/%s", branch, p) >= sizeof(bpath))
-			sysfatal("overlong path");
+		snprint(rmpath, sizeof(rmpath), RDIR"/%s", p);
+		snprint(tpath, sizeof(tpath), TDIR"/%s", p);
+		snprint(bpath, sizeof(bpath), "%s/%s", branch, p);
 		if(access(p, AEXIST) != 0 || access(rmpath, AEXIST) == 0){
 			dirty = "dirty";
 			if(!quiet && (printflg & Rflg))

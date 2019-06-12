@@ -460,8 +460,8 @@ gitwalk1(Fid *fid, char *name, Qid *q)
 	case Qbranch:
 		if(strcmp(aux->refpath, ".git/refs/heads") == 0 && strcmp(name, "HEAD") == 0)
 			snprint(path, sizeof(path), ".git/HEAD");
-		else if(snprint(path, sizeof(path), "%s/%s", aux->refpath, name) >= sizeof(path))
-			e = E2long;
+		else
+			snprint(path, sizeof(path), "%s/%s", aux->refpath, name);
 		q->type = QTDIR;
 		d = dirstat(path);
 		if(d && d->qid.type == QTDIR)

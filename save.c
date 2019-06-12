@@ -59,8 +59,7 @@ writeobj(Hash *h, char *hdr, int nhdr, char *dat, int ndat)
 	st = sha1((uchar*)hdr, nhdr, nil, nil);
 	st = sha1((uchar*)dat, ndat, nil, st);
 	sha1(nil, 0, h->h, st);
-	if(snprint(s, sizeof(s), "%H", *h) >= sizeof(s))
-		sysfatal("bad hash");
+	snprint(s, sizeof(s), "%H", *h);
 	fd = create(".git/objects", OREAD, DMDIR|0755);
 	close(fd);
 	snprint(o, sizeof(o), ".git/objects/%c%c", s[0], s[1]);
@@ -105,16 +104,14 @@ tracked(char *path)
 	char ipath[256];
 
 	/* Explicitly removed. */
-	if(snprint(ipath, sizeof(ipath), ".git/index9/removed/%s", path) >= sizeof(ipath))
-		sysfatal("overlong tracked path");
+	snprint(ipath, sizeof(ipath), ".git/index9/removed/%s", path);
 	if(strstr(cleanname(ipath), ".git/index9/removed") != ipath)
 		sysfatal("path %s leaves index", ipath);
 	if(access(ipath, AEXIST) == 0)
 		return 0;
 
 	/* Explicitly added. */
-	if(snprint(ipath, sizeof(ipath), ".git/index9/tracked/%s", path) >= sizeof(ipath))
-		sysfatal("overlong tracked path");
+	snprint(ipath, sizeof(ipath), ".git/index9/tracked/%s", path);
 	if(strstr(cleanname(ipath), ".git/index9/tracked") != ipath)
 		sysfatal("path %s leaves index", ipath);
 	if(access(ipath, AEXIST) == 0)
@@ -140,8 +137,7 @@ treeify(char *path, Hash *th)
 	t = nil;
 	nt = 0;
 	for(i = 0; i < nd; i++){
-		if((snprint(ep, sizeof(ep), "%s/%s", path, d[i].name)) >= sizeof(ep))
-			sysfatal("overlong path");
+		snprint(ep, sizeof(ep), "%s/%s", path, d[i].name);
 		if(!tracked(ep))
 			continue;
 		if(d[i].qid.type & QTDIR){

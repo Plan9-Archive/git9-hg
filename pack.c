@@ -791,8 +791,7 @@ readidxobject(Biobuf *idx, Hash h, int flag)
 		l = strlen(d[i].name);
 		if(l > 4 && strcmp(d[i].name + l - 4, ".idx") != 0)
 			continue;
-		if(snprint(path, sizeof(path), ".git/objects/pack/%s", d[i].name) >= sizeof(path))
-			goto error;
+		snprint(path, sizeof(path), ".git/objects/pack/%s", d[i].name);
 		if((f = Bopen(path, OREAD)) == nil)
 			continue;
 		o = searchindex(f, h);

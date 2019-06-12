@@ -397,8 +397,7 @@ readours(Update **ret)
 	nu = 0;
 	if(!sendall){
 		u = emalloc((nremoved + 1)*sizeof(Update));
-		if(snprint(u[nu].ref, sizeof(u[nu].ref), "%s", curbranch) >= sizeof(u[nu].ref))
-			sysfatal("overlong ref %s", curbranch);
+		snprint(u[nu].ref, sizeof(u[nu].ref), "%s", curbranch);
 		if(resolveref(&u[nu].ours, curbranch) == -1)
 			sysfatal("broken branch %s", curbranch);
 		nu++;
@@ -407,8 +406,7 @@ readours(Update **ret)
 			sysfatal("read branches: %r");
 		u = emalloc((nremoved + nd)*sizeof(Update));
 		for(i = 0; i < nd; i++){
-			if(snprint(u->ref, sizeof(u->ref), "refs/heads/%s", d[nu].name) >= sizeof(u->ref))
-				sysfatal("overlong ref %s", d[nu].name);
+			snprint(u->ref, sizeof(u->ref), "refs/heads/%s", d[nu].name);
 			if(resolveref(&u[nu].ours, u[nu].ref) == -1)
 				continue;
 			nu++;
@@ -420,8 +418,7 @@ readours(Update **ret)
 			pfx = "refs/";
 		if(strstr(removed[i], "refs/heads/") == removed[i])
 			pfx = "";
-		if(snprint(u[nu].ref, sizeof(u[nu].ref), "%s%s", pfx, removed[i]) >= sizeof(u[nu].ref))
-			sysfatal("overlong ref %s", removed[i]);
+		snprint(u[nu].ref, sizeof(u[nu].ref), "%s%s", pfx, removed[i]);
 		h = &u[nu].ours;
 		if((r = findref(u, nu, u[nu].ref)) != nil)
 			h = &r->ours;
@@ -459,8 +456,7 @@ sendpack(int fd)
 			continue;
 		if(hparse(&u->theirs, sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
-		if(snprint(u->ref, sizeof(u->ref), sp[1]) >= sizeof(u->ref))
-			sysfatal("overlong ref %s", sp[1]);
+		snprint(u->ref, sizeof(u->ref), sp[1]);
 	}
 
 	updating = 0;
