@@ -16,17 +16,21 @@ fn usage {
 	exit usage
 }
 
-remote=''
+remote=()
 sendall=''
 remove=()
 upstream='origin'
 branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 while(~ $1 -* && ! ~ $1 --){
-	echo branch
 	switch($1){
-	case -u; upstream=$1
-	case -a; sendall=true
-	case -b; branch=$1
+	case -u;
+		shift
+		upstream=$1
+	case -a;
+		sendall=true
+	case -b;
+		shift
+		branch=$1
 	case -r;
 		shift
 		remove=(-r$1 $remove);
@@ -34,10 +38,15 @@ while(~ $1 -* && ! ~ $1 --){
 	}
 	shift
 }
-if(~ $remote '')
+
+if(~ $#remote 0)
 	remote=`{git/conf 'remote "'$upstream'".url'}
-if not
+if(~ $#remote 0)
 	remote=$upstream
+if(~ $#remote 0){
+	echo 'no idea where to push'
+	exit upstream
+}
 if(~ $sendall '')
 	git/send -b $branch  $remove $remote
 if not
