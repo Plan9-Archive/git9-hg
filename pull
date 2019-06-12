@@ -47,7 +47,7 @@ while(~ $1 -*){
 
 if(! ~ $#* 0)
 	usage
-if(! $#remote 0)
+if(! ~ $#remote 0)
 	remote=`{git/conf 'remote "'$upstream'".url'}
 if(~ $#remote 0)
 	remote=$upstream
