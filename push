@@ -9,7 +9,7 @@ if(! test -e /mnt/git/ctl)
 	git/fs
 
 fn usage {
-	echo 'usage: $argv0 [-a] [-u upstream] [-b branch]' >[1=2]
+	echo 'usage: git/push [-a] [-u upstream] [-b branch] [-r rmbranch]' >[1=2]
 	echo '	-a:		push all' >[1=2]
 	echo '	-u upstream:	push to repo "upstream" (default: origin)' >[1=2]
 	echo '	-b branch:	push branch "branch" (default: current branch)' >[1=2]
@@ -39,6 +39,8 @@ while(~ $1 -* && ! ~ $1 --){
 	shift
 }
 
+if(! ~ $#* 0)
+	usage
 if(~ $#remote 0)
 	remote=`{git/conf 'remote "'$upstream'".url'}
 if(~ $#remote 0)
