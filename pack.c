@@ -565,6 +565,14 @@ notfound:
 	return -1;		
 }
 
+/*
+ * Scans for non-empty word, copying it into buf.
+ * Strips off word, leading, and trailing space
+ * from input.
+ * 
+ * Returns -1 on empty string or error, leaving
+ * input unmodified.
+ */
 static int
 scanword(char **str, int *nstr, char *buf, int nbuf)
 {
