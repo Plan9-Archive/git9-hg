@@ -338,21 +338,22 @@ writepack(int fd, Update *upd, int nupd)
 		}
 	}
 
+	for(n = q; n; n = n->next)
+		e = n;
 	for(; q; q = n){
 		o = q->obj;
-		n = q->next;
-		
 		if(oshas(&skip, o) || oshas(&send, o))
-			continue;
+			goto iter;
 		pack(&send, &skip, o);
 		for(i = 0; i < o->commit->nparent; i++){
 			if((p = readobject(o->commit->parent[i])) == nil)
 				sysfatal("could not read parent of %H", o->hash);
-			n = emalloc(sizeof(Objq));
-			n->obj = p;
-			e->next = n;
-			e = n;			
+			e->next = emalloc(sizeof(Objq));
+			e->next->obj = p;
+			e = e->next;
 		}
+iter:
+		n = q->next;
 		free(q);
 	}
 
