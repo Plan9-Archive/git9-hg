@@ -706,13 +706,9 @@ parsetree(Object *o)
 	while(np > 0){
 		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
 			break;
-		if(strlen(buf) == 0)
-			bad = 1;
 		o->tree->ent = erealloc(o->tree->ent, ++o->tree->nent * sizeof(Dirent));
-		if(bad) print("realloced\n");
 		t = &o->tree->ent[o->tree->nent - 1];
 		m = strtol(buf, nil, 8);
-		if(bad) print("fuckedmode\n");
 		/* FIXME: symlinks and other BS */
 		if(m & 0160000){
 			t->mode = DMDIR;
