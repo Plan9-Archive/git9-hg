@@ -579,10 +579,16 @@ scanword(char **str, int *nstr, char *buf, int nbuf)
 		p++;
 	}
 
-	for(; n && !isspace(*p); p++, n--){
+	for(; n && *p && !isspace(*p); p++, n--){
 		r = 0;
 		*buf++ = *p;
 		nbuf--;
+		if(nbuf == 0)
+			return -1;
+	}
+	while(n && isblank(*p)){
+		n--;
+		p++;
 	}
 	*buf = 0;
 	*str = p;
@@ -682,7 +688,7 @@ parsecommit(Object *o)
 static void
 parsetree(Object *o)
 {
-	char *p, buf[128];
+	char *p, buf[256];
 	int np, nn, m;
 	Dirent *t;
 
@@ -692,13 +698,13 @@ parsetree(Object *o)
 	while(np > 0){
 		if(scanword(&p, &np, buf, sizeof(buf)) == -1)
 			break;
-		while(np && isblank(*p)){
-			p++;
-			np--;
-		}
+		if(strlen(buf) == 0)
+			bad = 1;
 		o->tree->ent = erealloc(o->tree->ent, ++o->tree->nent * sizeof(Dirent));
+		if(bad) print("realloced\n");
 		t = &o->tree->ent[o->tree->nent - 1];
 		m = strtol(buf, nil, 8);
+		if(bad) print("fuckedmode\n");
 		/* FIXME: symlinks and other BS */
 		if(m & 0160000){
 			t->mode = DMDIR;
