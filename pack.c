@@ -696,7 +696,7 @@ parsetree(Object *o)
 			p++;
 			np--;
 		}
-		o->tree->ent = realloc(o->tree->ent, ++o->tree->nent * sizeof(Dirent));
+		o->tree->ent = erealloc(o->tree->ent, ++o->tree->nent * sizeof(Dirent));
 		t = &o->tree->ent[o->tree->nent - 1];
 		m = strtol(buf, nil, 8);
 		/* FIXME: symlinks and other BS */
