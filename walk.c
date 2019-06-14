@@ -137,6 +137,8 @@ findroot(void)
 {
 	char path[256], buf[256], *p;
 
+	if(access("/mnt/git/ctl", AEXIST) != 0)
+		sysfatal("no running git/fs");
 	if((getwd(path, sizeof(path))) == nil)
 		sysfatal("could not get wd: %r");
 	while((p = strrchr(path, '/')) != nil){
