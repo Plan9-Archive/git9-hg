@@ -5,7 +5,7 @@
 #define NCACHE 256
 #define TDIR ".git/index9/tracked"
 #define RDIR ".git/index9/removed"
-#define BFMT "/mnt/git/branch/%s/tree"
+#define HDIR "/mnt/git/HEAD/tree"
 typedef struct Cache	Cache;
 typedef struct Wres	Wres;
 struct Cache {
@@ -22,18 +22,17 @@ struct Wres {
 
 enum {
 	Rflg	= 1 << 0,
-	Tflg	= 1 << 1,
-	Dflg	= 1 << 2,
-	Aflg	= 1 << 3,
+	Mflg	= 1 << 1,
+	Aflg	= 1 << 2,
+	Tflg	= 1 << 3,
 };
 
 Cache seencache[NCACHE];
 int quiet;
 int printflg;
-char branch[256] = "/mnt/git/HEAD/tree";
 char *rstr = "R ";
 char *tstr = "T ";
-char *dstr = "D ";
+char *mstr = "M ";
 char *astr = "A ";
 
 int
@@ -173,8 +172,40 @@ sameqid(char *f, char *qf)
 	snprint(fileqid, sizeof(fileqid), "%ullx.%uld.%.2uhhx",
 	    d->qid.path, d->qid.vers, d->qid.type);
 	if(strcmp(indexqid, fileqid) == 0)
-		return 0;
-	return -1;
+		return 1;
+	return 0;
+}
+
+int
+samedata(char *pa, char *pb)
+{
+	char ba[32*1024], bb[32*1024];
+	int fa, fb, na, nb, same;
+
+	same = 0;
+	fa = open(pa, OREAD);
+	fb = open(pb, OREAD);
+	if(fa == -1 || fb == -1)
+		goto mismatch;
+	while(1){
+		if((na = readn(fa, ba, sizeof(ba))) == -1)
+			goto mismatch;
+		if((nb = readn(fb, bb, sizeof(bb))) == -1)
+			goto mismatch;
+		if(na != nb)
+			goto mismatch;
+		if(na == 0)
+			break;
+		if(memcmp(ba, bb, na) != 0)
+			goto mismatch;
+	}
+	same = 1;
+mismatch:
+	if(fa != -1)
+		close(fa);
+	if(fb != -1)
+		close(fb);
+	return same;
 }
 
 void
@@ -187,21 +218,19 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char rmpath[256], tpath[256], bpath[256], *p, *dirty;
+	char rmpath[256], tpath[256], bpath[256], buf[8];
+	char *p, *e;
+	int i, dirty;
 	Wres r;
-	int i;
 
 	ARGBEGIN{
 	case 'q':
 		quiet++;
 		break;
-	case 'b':
-		snprint(branch, sizeof(branch), BFMT, EARGF(usage()));
-		break;
 	case 'c':
 		rstr = "";
 		tstr = "";
-		dstr = "";
+		mstr = "";
 		astr = "";
 		break;
 	case 'f':
@@ -209,7 +238,7 @@ main(int argc, char **argv)
 			switch(*p){
 			case 'T':	printflg |= Tflg;	break;
 			case 'A':	printflg |= Aflg;	break;
-			case 'D':	printflg |= Dflg;	break;
+			case 'M':	printflg |= Mflg;	break;
 			case 'R':	printflg |= Rflg;	break;
 			default:	usage();		break;
 		}
@@ -219,14 +248,12 @@ main(int argc, char **argv)
 	}ARGEND
 
 	findroot();
-	dirty = nil;
+	dirty = 0;
 	r.path = nil;
 	r.npath = 0;
 	r.pathsz = 0;
 	if(printflg == 0)
-		printflg = Tflg | Aflg | Dflg | Rflg;
-	if(access(branch, AEXIST) == 0 && readpaths(&r, branch, "") == -1)
-		sysfatal("read branch files: %r");
+		printflg = Tflg | Aflg | Mflg | Rflg;
 	if(access(TDIR, AEXIST) == 0 && readpaths(&r, TDIR, "") == -1)
 		sysfatal("read tracked: %r");
 	if(access(RDIR, AEXIST) == 0 && readpaths(&r, RDIR, "") == -1)
@@ -237,17 +264,17 @@ main(int argc, char **argv)
 		p = r.path[i];
 		snprint(rmpath, sizeof(rmpath), RDIR"/%s", p);
 		snprint(tpath, sizeof(tpath), TDIR"/%s", p);
-		snprint(bpath, sizeof(bpath), "%s/%s", branch, p);
+		snprint(bpath, sizeof(bpath), HDIR"/%s", p);
 		if(access(p, AEXIST) != 0 || access(rmpath, AEXIST) == 0){
-			dirty = "dirty";
+			dirty |= Mflg;
 			if(!quiet && (printflg & Rflg))
 				print("%s%s\n", rstr, p);
-		}else if(sameqid(p, tpath) == -1){
-			dirty = "dirty";
-			if(!quiet && (printflg & Dflg))
-				print("%s%s\n", dstr, p);
+		}else if(!sameqid(p, tpath) && !samedata(p, bpath)){
+			dirty |= Mflg;
+			if(!quiet && (printflg & Mflg))
+				print("%s%s\n", mstr, p);
 		}else if(access(bpath, AEXIST) == -1) {
-			dirty = "dirty";
+			dirty |= Aflg;
 			if(!quiet && (printflg & Aflg))
 				print("%s%s\n", astr, p);
 		}else{
@@ -255,5 +282,13 @@ main(int argc, char **argv)
 				print("%s%s\n", tstr, p);
 		}
 	}
-	exits(dirty);
+	if(!dirty)
+		exits(nil);
+
+	p = buf;
+	e = buf + sizeof(buf);
+	for(i = 0; (1 << i) != Tflg; i++)
+		if(dirty & (1 << i))
+			p = seprint(p, e, "%c", "DMAT"[i]);
+	exits(buf);
 }
