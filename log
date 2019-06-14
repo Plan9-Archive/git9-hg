@@ -18,10 +18,9 @@ while(! ~$#commits 0){
 	cat $base/$c/msg | sed 's/^/	/g'
 	echo ''
 
-
 	commits=($commits(2-) `{cat $base/$c/parent >[2]/dev/null})
 	if(! ~ $#commits 0)
 		commits=`{mtime $base^$commits |
-			sort -rn |
+			sort -rn | uniq -u |
 			awk -F/ '{print $NF}'}
 }
