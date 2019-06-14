@@ -5,9 +5,7 @@ rfork en
 if(! cd `{git/conf -r})
 	exit 'not in git repository'
 
-if(! test -e /mnt/git/ctl)
-	git/fs
-
+git/fs
 fn usage {
 	echo 'usage: git/push [-a] [-u upstream] [-b branch] [-r rmbranch]' >[1=2]
 	echo '	-a:		push all' >[1=2]
