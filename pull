@@ -31,12 +31,17 @@ fn usage{
 	exit usage
 }
 
+git/fs
+branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 upstream=origin
 while(~ $1 -*){
 	switch($1){
 	case -u;
 		shift
 		upstream=$1
+	case -b:
+		shift
+		branch=$1
 	case -f;
 		fetch=true
 	case *;
@@ -59,11 +64,6 @@ if(~ $#remote 0){
 if(! cd `{git/conf -r})
 	exit 'not in git repository'
 
-if(! test -e /mnt/git/ctl)
-	git/fs
-
-
-branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 dir=/mnt/git/branch/$branch/tree
 if(! git/walk -q){
 	echo $status
@@ -71,7 +71,7 @@ if(! git/walk -q){
 	exit 'dirty'
 }
 oldfiles=`$nl{git/walk -cfT}
-update $upstream $remote $dir
+update $branch $remote $dir
 if(~ $fetch ''){
 	rm -f $oldfiles
 	tree=/mnt/git/HEAD/tree
