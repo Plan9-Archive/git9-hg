@@ -31,7 +31,8 @@ objbytes(void *p, void *buf, int nbuf)
 	n = 0;
 	if(b->off < b->nhdr){
 		r = b->nhdr - b->off;
-		memcpy(buf, b->hdr, (nbuf < r) ? nbuf : r);
+		r = (nbuf < r) ? nbuf : r;
+		memcpy(buf, b->hdr, r);
 		b->off += r;
 		nbuf -= r;
 		n += r;
@@ -40,7 +41,8 @@ objbytes(void *p, void *buf, int nbuf)
 		s = buf;
 		o = b->off - b->nhdr;
 		r = b->ndat - o;
-		memcpy(s + n, b->dat + o, (nbuf < r) ? nbuf : r);
+		r = (nbuf < r) ? nbuf : r;
+		memcpy(s + n, b->dat + o, r);
 		b->off += r;
 		n += r;
 	}
@@ -69,6 +71,7 @@ writeobj(Hash *h, char *hdr, int nhdr, char *dat, int ndat)
 	if(readobject(*h) == nil){
 		if((f = Bopen(o, OWRITE)) == nil)
 			sysfatal("could not open %s: %r", o);
+		print("writing object\n");
 		if(deflatezlib(f, bwrite, &b, objbytes, 9, 0) == -1)
 			sysfatal("could not write %s: %r", o);
 		Bterm(f);
@@ -87,6 +90,7 @@ blobify(char *path, vlong size, Hash *bh)
 	char h[64], *d;
 	int f, nh;
 
+	print("saving %s\n", path);
 	nh = snprint(h, sizeof(h), "%T %lld", GBlob, size) + 1;
 	if((f = open(path, OREAD)) == -1)
 		sysfatal("could not open %s: %r", path);
