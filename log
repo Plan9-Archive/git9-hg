@@ -9,18 +9,7 @@ if(~ $1 '')
 if(! test -e /mnt/git/ctl)
 	git/fs
 
-commits=($branch)
-if(test -e /mnt/git/branch/heads/$branch)
-	commits=`{cat /mnt/git/branch/heads/$branch/hash}
-if not if(test -e /mnt/git/branch/$branch)
-	commits=`{cat /mnt/git/branch/$branch/hash}
-if not if(test -e /mnt/git/object/$branch/hash)
-	commits=`{cat /mnt/git/object/$branch/hash}
-if not{
-	echo 'unknown commit '$branch >[2=1]
-	exit 'unknown commit '$branch
-}
-
+commits=(`{git/query $branch})
 while(! ~$#commits 0){
 	c=$commits(1)
 	
