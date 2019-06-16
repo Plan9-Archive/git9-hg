@@ -24,12 +24,18 @@ while(~ $1 -*){
 
 if(~ $#branch 0)
 	branch=`{git/branch}
-dirty=`{git/walk | awk '/^D/ {print $2}'}
+dirty=`{git/walk | awk '/^[MAR]/ {print $2}'}
 if(! ~ $#* 0){
-	echo $dirty | sed 's/ /\n/g' | sort >/tmp/git.diff.dirty
-	echo $* | sed 's/ /\n/g' | sort >/tmp/git.diff.args
-	dirty=`{join /tmp/git.diff.dirty /tmp/git.diff.args}
+	echo $dirty | sed 's/ /\n/g' | sort >/tmp/git.$pid.diff.dirty
+	echo $* | sed 's/ /\n/g' | sort >/tmp/git.$pid.diff.args
+	dirty=`{join /tmp/git.$pid.diff.dirty /tmp/git.$pid.diff.args}
 }
-for(f in $dirty)
-	ape/diff -up /mnt/git/branch/$branch/tree/$f $f
-
+for(f in $dirty){
+	orig=/mnt/git/branch/$branch/tree/$f
+	if(! test -f $orig)
+		orig=/dev/null
+	if(! test -f $f)
+		f=/dev/null
+	ape/diff -up $orig $f
+}
+rm -f /tmp/git.$pid.diff.dirty /tmp/git.$pid.diff.args
