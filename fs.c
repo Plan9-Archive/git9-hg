@@ -347,10 +347,9 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 		for(i = 0; i < o->tree->nent; i++){
 			if(strcmp(o->tree->ent[i].name, name) != 0)
 				continue;
-			if(o->tree->ent[i].gitlink)
+			w = readobject(o->tree->ent[i].h);
+			if(!w && o->tree->ent[i].gitlink)
 				w = gitlink(&o->tree->ent[i]);
-			else
-				w = readobject(o->tree->ent[i].h);
 			if(!w)
 				die("could not read object for %s", name);
 			q->type = (w->type == GTree) ? QTDIR : 0;
