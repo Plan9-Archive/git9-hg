@@ -1,0 +1,28 @@
+#!/bin/rc
+
+rfork e
+
+fn usage{
+	echo $argv0 [-b] name >[1=2]
+	echo '	-b	init bare repository' >[1=2]
+	exit usage
+}
+
+sub='/.git'
+while(~ $1 -*){
+	switch($1){
+	case '-b';	sub=''
+	case *;		usage
+	}
+	shift
+}
+
+if (~ $#* 0)
+	dir=.
+if not if(~ $#* 1)
+	dir=$1
+if not
+	usage
+
+mkdir -p $dir$sub
+dircp /sys/lib/git/template $dir/$sub
