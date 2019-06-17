@@ -367,7 +367,7 @@ main(int argc, char **argv)
 	fd = -1;
 
 	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
-		sysfatal("bad uri %s", argv0);
+		sysfatal("bad uri %s", argv[0]);
 	if(strcmp(proto, "ssh") == 0 || strcmp(proto, "git+ssh") == 0)
 		fd = dialssh(host, port, path);
 	else if(strcmp(proto, "git") == 0)
