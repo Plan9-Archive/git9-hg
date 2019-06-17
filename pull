@@ -38,7 +38,7 @@ while(~ $1 -*){
 	switch($1){
 	case -u;
 		shift
-		upstream=$1
+		remote=$1
 	case -b:
 		shift
 		branch=$1
@@ -52,10 +52,8 @@ while(~ $1 -*){
 
 if(! ~ $#* 0)
 	usage
-if(! ~ $#remote 0)
-	remote=`{git/conf 'remote "'$upstream'".url'}
 if(~ $#remote 0)
-	remote=$upstream
+	remote=`{git/conf 'remote "'$upstream'".url'}
 if(~ $#remote 0){
 	echo 'no idea from where to pull'
 	exit upstream
