@@ -60,6 +60,10 @@ git/commit, git/diff, git/init, git/log, git/merge, git/push, git/pull
 [
 .I dir
 ]
+[
+.B -u
+.I upstream
+]
 .PP
 .B git/log
 .PP
@@ -153,6 +157,11 @@ there instead.
 Passing the
 .B -b
 option will cause the repository to be initialized as a bare repository.
+Passing the
+.B -u
+.I upstream
+option will cause the upstream to be configured to
+.I upstream.
 
 .PP
 .B Git/clone
