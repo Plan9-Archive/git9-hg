@@ -1,4 +1,4 @@
-#!/bin/rc -e
+#!/bin/rc -ex
 
 rfork en
 
@@ -33,6 +33,9 @@ fn usage{
 
 git/fs
 branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
+remote=()
+branch=()
+fetch=()
 upstream=origin
 while(~ $1 -*){
 	switch($1){
