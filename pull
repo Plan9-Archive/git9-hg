@@ -1,4 +1,4 @@
-#!/bin/rc -ex
+#!/bin/rc -e
 
 rfork en
 
@@ -34,7 +34,6 @@ fn usage{
 git/fs
 branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 remote=()
-branch=()
 fetch=()
 upstream=origin
 while(~ $1 -*){
@@ -73,7 +72,7 @@ if(! git/walk -q){
 }
 oldfiles=`$nl{git/walk -cfT}
 update $branch $remote $dir
-if(~ $fetch ''){
+if(~ $#fetch 0){
 	rm -f $oldfiles
 	tree=/mnt/git/HEAD/tree
 	@{builtin cd $tree && tar cif /fd/1 .} | @{tar xf /fd/0}
