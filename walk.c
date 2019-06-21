@@ -126,7 +126,7 @@ dedup(Wres *r)
 	qsort(r->path, r->npath, sizeof(r->path[0]), cmp);
 	for(i = 1; i < r->npath; i++)
 		if(strcmp(r->path[o], r->path[i]) != 0)
-			r->path[o++] = r->path[i];
+			r->path[++o] = r->path[i];
 	r->npath = o + 1;
 }
 
