@@ -201,10 +201,14 @@ rename(char *pack, char *idx, Hash h)
 	nulldir(&st);
 	st.name = name;
 	snprint(name, sizeof(name), "%H.pack", h);
-	if(dirwstat(pack, &st) == -1)
+	if(access(name, AEXIST) == 0)
+		fprint(2, "warning, pack %s already fetched\n", name);
+	else if(dirwstat(pack, &st) == -1)
 		return -1;
 	snprint(name, sizeof(name), "%H.idx", h);
-	if(dirwstat(idx, &st) == -1)
+	if(access(name, AEXIST) == 0)
+		fprint(2, "warning, pack %s already indexed\n", name);
+	else if(dirwstat(idx, &st) == -1)
 		return -1;
 	return 0;
 }
@@ -255,8 +259,8 @@ mkoutpath(char *path)
 	snprint(s, sizeof(s), "%s", path);
 	for(p=strchr(s+1, '/'); p; p=strchr(p+1, '/')){
 		*p = 0;
-		if(access(path, AEXIST) != 0){
-			fd = create(path, OREAD, DMDIR | 0755);
+		if(access(s, AEXIST) != 0){
+			fd = create(s, OREAD, DMDIR | 0755);
 			if(fd == -1)
 				return -1;
 			close(fd);
