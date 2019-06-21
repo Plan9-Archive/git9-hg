@@ -75,7 +75,7 @@ readpaths(Wres *r, char *pfx, char *dir)
 	if(dir[0] != 0)
 		sep = "/";
 	if((full = smprint("%s/%s", pfx, dir)) == nil)
-		goto error;
+		sysfatal("smprint: %r");
 	if((fd = open(full, OREAD)) < 0)
 		goto error;
 	while((n = dirread(fd, &d)) > 0){
@@ -96,7 +96,7 @@ readpaths(Wres *r, char *pfx, char *dir)
 					r->path = erealloc(r->path, r->pathsz * sizeof(char*));
 				}
 				if((f = smprint("%s%s%s", dir, sep, d[i].name)) == nil)
-					goto error;
+					sysfatal("smprint: %r");
 				r->path[r->npath++] = f;
 			}
 		}
