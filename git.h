@@ -89,9 +89,8 @@ struct Object {
 	/* Everything below here gets cleared */
 	char	*all;
 	char	*data;
-	vlong	size;
 	/* size excludes header */
-	int	parsed;
+	vlong	size;
 
 	union {
 		Cinfo *commit;

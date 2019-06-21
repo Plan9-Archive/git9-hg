@@ -746,7 +746,7 @@ parseobject(Object *o)
 	case GTag:	parsetag(o);	break;
 	default:	break;
 	}
-	o->parsed = 1;
+	o->flag |= Cparsed;
 }
 
 static Object*

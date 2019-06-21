@@ -164,6 +164,7 @@ gitlink(Dirent *e)
 	m->tree->nent = 0;
 	m->flag |= Cloaded|Cparsed;
 	m->off = -1;
+	ref(m);
 	cache(m);
 	return m;
 }
@@ -347,8 +348,10 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 			if(strcmp(o->tree->ent[i].name, name) != 0)
 				continue;
 			w = readobject(o->tree->ent[i].h);
+			if(!w && o->tree->ent[i].gitlink)
+				w = gitlink(&o->tree->ent[i]);
 			if(!w)
-				die("could not read object %H (%s): %r", o->tree->ent[i].h, o->tree->ent[i].name);
+				die("could not read object for %s", name);
 			q->type = (w->type == GTree) ? QTDIR : 0;
 			q->path = QPATH(w->id, qdir);
 			aux->obj = w;
