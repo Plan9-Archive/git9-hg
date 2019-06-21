@@ -120,15 +120,14 @@ dedup(Wres *r)
 {
 	int i, o;
 
+	if(r->npath <= 1)
+		return;
 	o = 0;
-	i = 0;
 	qsort(r->path, r->npath, sizeof(r->path[0]), cmp);
-	while(i < r->npath){
-		r->path[o++] = r->path[i++];
-		while(i < r->npath && strcmp(r->path[o], r->path[i]) == 0)
-			i++;
-	}
-	r->npath = o;
+	for(i = 1; i < r->npath; i++)
+		if(strcmp(r->path[o], r->path[i]) != 0)
+			r->path[o++] = r->path[i];
+	r->npath = o + 1;
 }
 
 static void
@@ -185,8 +184,9 @@ samedata(char *pa, char *pb)
 	same = 0;
 	fa = open(pa, OREAD);
 	fb = open(pb, OREAD);
-	if(fa == -1 || fb == -1)
+	if(fa == -1 || fb == -1){
 		goto mismatch;
+	}
 	while(1){
 		if((na = readn(fa, ba, sizeof(ba))) == -1)
 			goto mismatch;
@@ -269,14 +269,14 @@ main(int argc, char **argv)
 			dirty |= Mflg;
 			if(!quiet && (printflg & Rflg))
 				print("%s%s\n", rstr, p);
-		}else if(!sameqid(p, tpath) && !samedata(p, bpath)){
-			dirty |= Mflg;
-			if(!quiet && (printflg & Mflg))
-				print("%s%s\n", mstr, p);
 		}else if(access(bpath, AEXIST) == -1) {
 			dirty |= Aflg;
 			if(!quiet && (printflg & Aflg))
 				print("%s%s\n", astr, p);
+		}else if(!sameqid(p, tpath) && !samedata(p, bpath)){
+			dirty |= Mflg;
+			if(!quiet && (printflg & Mflg))
+				print("%s%s\n", mstr, p);
 		}else{
 			if(!quiet && (printflg & Tflg))
 				print("%s%s\n", tstr, p);
