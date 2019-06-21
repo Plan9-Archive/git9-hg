@@ -6,20 +6,29 @@ nl='
 '
 
 fn update{
-	branch=$1
-	url=$2
-	dir=$3
+	update=$1
+	branch=$2
+	url=$3
+	dir=$4
 	
-	{git/fetch -b $1 $2 >[2=3] | awk '
+	echo git/fetch -b $branch $url
+	{git/fetch -b $branch $url >[2=3] | awk -v 'update='^$update '
+		function writeref(ref, hash)
+		{
+			outfile = ".git/"ref
+			system("mkdir -p `{basename -d "outfile"}")
+			print hash > outfile
+			close(outfile)
+		}
+
 		/^remote/{
 			if($2=="HEAD")
 				next
 
+			if(update)
+				writeref($2, $3)
 			gsub("^refs/heads", "refs/remotes/'$remote'", $2)
-			outfile = ".git/" $2
-			system("mkdir -p `{basename -d "outfile"}")
-			print $3 > outfile
-			close(outfile)
+			writeref($2, $3)
 		}
 	'} |[3] tr '\x0d' '\x0a'
 }
@@ -34,7 +43,7 @@ fn usage{
 git/fs
 branch=`{awk '$1=="branch"{print $2}' < /mnt/git/ctl}
 remote=()
-fetch=()
+update='true'
 upstream=origin
 while(~ $1 -*){
 	switch($1){
@@ -45,7 +54,7 @@ while(~ $1 -*){
 		shift
 		branch=$1
 	case -f;
-		fetch=true
+		update=''
 	case *;
 		usage
 	}
@@ -71,8 +80,8 @@ if(! git/walk -q){
 	exit 'dirty'
 }
 oldfiles=`$nl{git/walk -cfT}
-update $branch $remote $dir
-if(~ $#fetch 0){
+update $update  $branch $remote $dir
+if(! ~ $update 0){
 	rm -f $oldfiles
 	tree=/mnt/git/HEAD/tree
 	@{builtin cd $tree && tar cif /fd/1 .} | @{tar xf /fd/0}
