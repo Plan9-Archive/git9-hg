@@ -11,8 +11,7 @@ if(! cd `{git/conf -r}){
 	echo 'not a git repository' >[1=2]
 	exit notgit
 }
-if(! test -f /mnt/git/ctl)
-	git/fs
+git/fs
 
 while(~ $1 -*){
 	switch($1){

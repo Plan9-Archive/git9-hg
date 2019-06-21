@@ -13,6 +13,7 @@ enum {
 
 Object *indexed;
 char *clonebranch;
+char *packtmp = ".git/objects/pack/fetch.tmp";
 
 static int
 readpkt(int fd, char *buf, int nbuf)
@@ -245,14 +246,35 @@ checkhash(int fd, vlong sz, Hash *hcomp)
 }
 
 int
-fetchpack(int fd, char *packtmp)
+mkoutpath(char *path)
+{
+	char s[128];
+	char *p;
+	int fd;
+
+	snprint(s, sizeof(s), "%s", path);
+	for(p=strchr(s+1, '/'); p; p=strchr(p+1, '/')){
+		*p = 0;
+		if(access(path, AEXIST) != 0){
+			fd = create(path, OREAD, DMDIR | 0755);
+			if(fd == -1)
+				return -1;
+			close(fd);
+		}		
+		*p = '/';
+	}
+	return 0;
+}
+
+int
+fetchpack(int fd, int pfd, char *packtmp)
 {
 	char buf[65536];
 	char idxtmp[256];
 	char *sp[3];
 	Hash h, *have, *want;
 	int nref, refsz;
-	int i, n, req, pfd;
+	int i, n, req;
 	vlong packsz;
 
 	nref = 0;
@@ -305,17 +327,15 @@ fetchpack(int fd, char *packtmp)
 		fprint(2, "up to date\n");
 		flushpkt(fd);
 	}
+
 	n = snprint(buf, sizeof(buf), "done\n");
 	if(writepkt(fd, buf, n) == -1)
 		sysfatal("lost connection write");
 	if((n = readpkt(fd, buf, sizeof(buf))) == -1)
 		sysfatal("lost connection read");
 	buf[n] = 0;
-	pfd = create(packtmp, ORDWR, 0644);
-	if(pfd == -1)
-		sysfatal("could not open pack %s", packtmp);
-	fprint(2, "fetching...\n");
 
+	fprint(2, "fetching...\n");
 	packsz = 0;
 	while(1){
 		n = readn(fd, buf, sizeof buf);
@@ -354,7 +374,7 @@ main(int argc, char **argv)
 {
 	char proto[Nproto], host[Nhost], port[Nport];
 	char repo[Nrepo], path[Npath];
-	int fd;
+	int fd, pfd;
 
 	ARGBEGIN{
 	case 'b':	clonebranch=EARGF(usage());	break;
@@ -365,6 +385,11 @@ main(int argc, char **argv)
 	if(argc != 1)
 		usage();
 	fd = -1;
+
+	if(mkoutpath(packtmp) == -1)
+		sysfatal("could not create %s: %r", packtmp);
+	if((pfd = create(packtmp, ORDWR, 0644)) == -1)
+		sysfatal("could not create %s: %r", packtmp);
 
 	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
 		sysfatal("bad uri %s", argv[0]);
@@ -379,7 +404,7 @@ main(int argc, char **argv)
 	
 	if(fd == -1)
 		sysfatal("could not dial %s:%s: %r", proto, host);
-	if(fetchpack(fd, ".git/objects/pack/fetch.tmp") == -1)
+	if(fetchpack(fd, pfd, packtmp) == -1)
 		sysfatal("fetch failed: %r");
 	exits(nil);
 }
