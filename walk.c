@@ -70,7 +70,6 @@ readpaths(Wres *r, char *pfx, char *dir)
 	int fd, ret, i, n;
 
 	ret = -1;
-	fd = -1;
 	sep = "";
 	if(dir[0] != 0)
 		sep = "/";
