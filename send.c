@@ -199,6 +199,7 @@ dialgit(char *host, char *port, char *path)
 void
 pack(Objset *send, Objset *skip, Object *o)
 {
+	Dirent *e;
 	Object *s;
 	int i;
 
@@ -213,8 +214,11 @@ pack(Objset *send, Objset *skip, Object *o)
 		break;
 	case GTree:
 		for(i = 0; i < o->tree->nent; i++){
-			if ((s = readobject(o->tree->ent[i].h)) == nil)
-				sysfatal("could not read entry %H: %r", o->tree->ent[i].h);
+			e = &o->tree->ent[i];
+			if(e->gitlink)
+				continue;
+			if ((s = readobject(e->h)) == nil)
+				sysfatal("could not read entry %H: %r", e->h);
 			pack(send, skip, s);
 		}
 		break;
