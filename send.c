@@ -208,13 +208,13 @@ pack(Objset *send, Objset *skip, Object *o)
 	switch(o->type){
 	case GCommit:
 		if((s = readobject(o->commit->tree)) == nil)
-			sysfatal("could not read tree for commit %H", o->hash);
+			sysfatal("could not read tree %H: %r", o->hash);
 		pack(send, skip, s);
 		break;
 	case GTree:
 		for(i = 0; i < o->tree->nent; i++){
 			if ((s = readobject(o->tree->ent[i].h)) == nil)
-				sysfatal("could not read tree for commit %H", o->hash);
+				sysfatal("could not read entry %H: %r", o->tree->ent[i].h);
 			pack(send, skip, s);
 		}
 		break;
