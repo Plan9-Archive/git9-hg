@@ -66,7 +66,7 @@ struct Hash {
 
 struct Dirent {
 	char *name;
-	int gitlink;
+	int modref;
 	int mode;
 	Hash h;
 };

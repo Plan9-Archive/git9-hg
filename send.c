@@ -215,6 +215,8 @@ pack(Objset *send, Objset *skip, Object *o)
 	case GTree:
 		for(i = 0; i < o->tree->nent; i++){
 			e = &o->tree->ent[i];
+			if(e->modref)
+				print("wtf, a link? %s\n", e->name);
 			if ((s = readobject(e->h)) == nil)
 				sysfatal("could not read entry %H: %r", e->h);
 			pack(send, skip, s);

@@ -708,11 +708,13 @@ parsetree(Object *o)
 			break;
 		o->tree->ent = erealloc(o->tree->ent, ++o->tree->nent * sizeof(Dirent));
 		t = &o->tree->ent[o->tree->nent - 1];
+		memset(t, 0, sizeof(Dirent));
 		m = strtol(buf, nil, 8);
 		/* FIXME: symlinks and other BS */
-		if(m & 0160000){
+		if(m == 0160000){
+			print("setting mode to link...\n");
 			t->mode = DMDIR;
-			t->gitlink = 1;
+			t->modref = 1;
 		}
 		if(m & 0040000)
 			t->mode = DMDIR;

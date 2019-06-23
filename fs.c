@@ -152,7 +152,7 @@ branchgen(int i, Dir *d, void *p)
 
 /* FIXME: walk to the appropriate submodule.. */
 static Object*
-gitlink(Dirent *e)
+modrefobj(Dirent *e)
 {
 	Object *m;
 
@@ -180,8 +180,8 @@ gtreegen(int i, Dir *d, void *p)
 	if(i >= e->tree->nent)
 		return -1;
 	if((o = readobject(e->tree->ent[i].h)) == nil)
-		if(e->tree->ent[i].gitlink)
-			o = gitlink(&e->tree->ent[i]);
+		if(e->tree->ent[i].modref)
+			o = modrefobj(&e->tree->ent[i]);
 		else
 			die("could not read object %H: %r", e->tree->ent[i].h, e->hash);
 	d->qid.vers = 0;
@@ -348,8 +348,8 @@ objwalk1(Qid *q, Gitaux *aux, char *name, vlong qdir)
 			if(strcmp(o->tree->ent[i].name, name) != 0)
 				continue;
 			w = readobject(o->tree->ent[i].h);
-			if(!w && o->tree->ent[i].gitlink)
-				w = gitlink(&o->tree->ent[i]);
+			if(!w && o->tree->ent[i].modref)
+				w = modrefobj(&o->tree->ent[i]);
 			if(!w)
 				die("could not read object for %s", name);
 			q->type = (w->type == GTree) ? QTDIR : 0;
