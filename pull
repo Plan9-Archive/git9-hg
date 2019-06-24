@@ -12,7 +12,6 @@ fn update{
 	url=$4
 	dir=$5
 	
-	echo git/fetch -b $branch -u $upstream $url
 	{git/fetch -b $branch -u $upstream $url >[2=3] | awk -v 'update='^$update '
 		function writeref(ref, hash)
 		{
