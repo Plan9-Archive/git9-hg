@@ -348,10 +348,12 @@ fetchpack(int fd, int pfd, char *packtmp)
 		fprint(2, "up to date\n");
 		flushpkt(fd);
 	}
-
 	n = snprint(buf, sizeof(buf), "done\n");
 	if(writepkt(fd, buf, n) == -1)
 		sysfatal("lost connection write");
+	if(!req)
+		return 0;
+
 	if((n = readpkt(fd, buf, sizeof(buf))) == -1)
 		sysfatal("lost connection read");
 	buf[n] = 0;
