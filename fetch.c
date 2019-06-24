@@ -13,6 +13,7 @@ enum {
 
 Object *indexed;
 char *clonebranch;
+char *upstream = "origin";
 char *packtmp = ".git/objects/pack/fetch.tmp";
 
 static int
@@ -171,10 +172,10 @@ resolveremote(Hash *h, char *ref)
 		snprint(buf, sizeof(buf), ".git/HEAD");
 	}else if(strstr(ref, "refs/heads") == ref){
 		ref += strlen("refs/heads");
-		snprint(buf, sizeof(buf), ".git/refs/remotes/%s/%s", clonebranch, ref);
+		snprint(buf, sizeof(buf), ".git/refs/remotes/%s/%s", upstream, ref);
 	}else if(strstr(ref, "refs/tags") == ref){
 		ref += strlen("refs/tags");
-		snprint(buf, sizeof(buf), ".git/refs/tags/%s/%s", clonebranch, ref);
+		snprint(buf, sizeof(buf), ".git/refs/tags/%s/%s", upstream, ref);
 	}else{
 		return -1;
 	}
@@ -271,6 +272,20 @@ mkoutpath(char *path)
 }
 
 int
+branchmatch(char *br, char *pat)
+{
+	char name[128];
+
+	if(strstr(pat, "refs/heads") == pat)
+		snprint(name, sizeof(name), "%s", pat);
+	else if(strstr(pat, "heads"))
+		snprint(name, sizeof(name), "refs/%s", pat);
+	else
+		snprint(name, sizeof(name), "refs/heads/%s", pat);
+	return strcmp(br, name) == 0;
+}
+
+int
 fetchpack(int fd, int pfd, char *packtmp)
 {
 	char buf[65536];
@@ -296,11 +311,13 @@ fetchpack(int fd, int pfd, char *packtmp)
 		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
 		if(strstr(sp[1], "^{}"))
 			continue;
+		if(clonebranch && !branchmatch(sp[1], clonebranch))
+			continue;
 		if(refsz == nref + 1){
 			refsz *= 2;
 			have = erealloc(have, refsz * sizeof(have[0]));
 			want = erealloc(want, refsz * sizeof(want[0]));
-		}	
+		}
 		if(hparse(&want[nref], sp[0]) == -1)
 			sysfatal("invalid hash %s", sp[0]);
 		if (resolveremote(&have[nref], sp[1]) == -1)
@@ -382,6 +399,7 @@ main(int argc, char **argv)
 
 	ARGBEGIN{
 	case 'b':	clonebranch=EARGF(usage());	break;
+	case 'u':	upstream=EARGF(usage());	break;
 	default:	usage();			break;
 	}ARGEND;
 
