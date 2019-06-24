@@ -713,13 +713,12 @@ parsetree(Object *o)
 		/* FIXME: symlinks and other BS */
 		if(m == 0160000){
 			print("setting mode to link...\n");
-			t->mode = DMDIR;
+			t->mode |= DMDIR;
 			t->modref = 1;
 		}
+		t->mode = m & 0777;
 		if(m & 0040000)
-			t->mode = DMDIR;
-		if(t->mode == DMDIR)
-			t->mode |= 0755;
+			t->mode |= DMDIR;
 		t->name = p;
 		nn = strlen(p) + 1;
 		p += nn;
