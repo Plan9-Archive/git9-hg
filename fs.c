@@ -138,6 +138,7 @@ branchgen(int i, Dir *d, void *p)
 	d->gid = estrdup9p(username);
 	d->muid = estrdup9p(username);
 	d->mtime = aux->mtime;
+	d->atime = aux->mtime;
 	if((n = slurpdir(aux->refpath, &refs)) < 0)
 		return -1;
 	if(i < n){
@@ -188,6 +189,8 @@ gtreegen(int i, Dir *d, void *p)
 	d->qid.type = o->type == GTree ? QTDIR : 0;
 	d->qid.path = QPATH(o->id, aux->qdir);
 	d->mode = e->tree->ent[i].mode;
+	d->atime = aux->mtime;
+	d->mtime = aux->mtime;
 	d->name = estrdup9p(e->tree->ent[i].name);
 	d->length = o->size;
 	return 0;
