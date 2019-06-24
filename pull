@@ -8,11 +8,11 @@ nl='
 fn update{
 	update=$1
 	branch=$2
-	url=$3
-	dir=$4
+	upstream=$3
+	url=$4
+	dir=$5
 	
-	echo git/fetch -b $branch $url
-	{git/fetch -b $branch $url >[2=3] | awk -v 'update='^$update '
+	{git/fetch -b $branch -u $upstream $url >[2=3] | awk -v 'update='^$update '
 		function writeref(ref, hash)
 		{
 			outfile = ".git/"ref
@@ -50,6 +50,7 @@ while(~ $1 -*){
 	case -u;
 		shift
 		remote=$1
+		upstream=SOMEONE
 	case -b:
 		shift
 		branch=$1
@@ -80,7 +81,7 @@ if(! git/walk -q){
 	exit 'dirty'
 }
 oldfiles=`$nl{git/walk -cfT}
-update $update  $branch $remote $dir
+update $update  $branch $upstream $remote $dir
 if(! ~ $update 0){
 	rm -f $oldfiles
 	tree=/mnt/git/HEAD/tree
