@@ -12,7 +12,7 @@ enum {
 };
 
 Object *indexed;
-char *clonebranch;
+char *fetchbranch;
 char *upstream = "origin";
 char *packtmp = ".git/objects/pack/fetch.tmp";
 
@@ -311,7 +311,7 @@ fetchpack(int fd, int pfd, char *packtmp)
 		getfields(buf, sp, nelem(sp), 1, " \t\n\r");
 		if(strstr(sp[1], "^{}"))
 			continue;
-		if(clonebranch && !branchmatch(sp[1], clonebranch))
+		if(fetchbranch && !branchmatch(sp[1], fetchbranch))
 			continue;
 		if(refsz == nref + 1){
 			refsz *= 2;
@@ -398,7 +398,7 @@ main(int argc, char **argv)
 	int fd, pfd;
 
 	ARGBEGIN{
-	case 'b':	clonebranch=EARGF(usage());	break;
+	case 'b':	fetchbranch=EARGF(usage());	break;
 	case 'u':	upstream=EARGF(usage());	break;
 	default:	usage();			break;
 	}ARGEND;
