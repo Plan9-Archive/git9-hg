@@ -92,6 +92,9 @@ obj2dir(Dir *d, Object *o, long qdir, vlong mtime)
 	d->qid.path = QPATH(o->id, qdir);
 	d->atime = mtime;
 	d->mtime = mtime;
+	d->uid = estrdup9p(username);
+	d->gid = estrdup9p(username);
+	d->muid = estrdup9p(username);
 	d->mode = 0755 | DMDIR;
 	if(o->type == GBlob || o->type == GTag){
 		d->qid.type = 0;
@@ -191,6 +194,9 @@ gtreegen(int i, Dir *d, void *p)
 	d->mode = e->tree->ent[i].mode;
 	d->atime = aux->mtime;
 	d->mtime = aux->mtime;
+	d->uid = estrdup9p(username);
+	d->gid = estrdup9p(username);
+	d->muid = estrdup9p(username);
 	d->name = estrdup9p(e->tree->ent[i].name);
 	d->length = o->size;
 	return 0;
