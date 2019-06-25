@@ -252,6 +252,7 @@ main(int argc, char **argv)
 	ARGBEGIN{
 	case 'b':	fetchbranch=EARGF(usage());	break;
 	case 'u':	upstream=EARGF(usage());	break;
+	case 'd':	chattygit++;			break;
 	default:	usage();			break;
 	}ARGEND;
 

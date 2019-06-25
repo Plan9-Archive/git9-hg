@@ -31,7 +31,6 @@ struct Update {
 	Hash	ours;
 };
 
-int chatty;
 int sendall;
 char *curbranch = "refs/heads/master";
 char *removed[128];
@@ -334,7 +333,7 @@ sendpack(int fd)
 		n = snprint(buf, sizeof(buf), "%H %H %s", u->theirs, u->ours, u->ref);
 		if(n >= sizeof(buf))
 			sysfatal("overlong update");
-		if(writepkt(fd, buf, n + 1) == -1)
+		if(writepkt(fd, buf, n) == -1)
 			sysfatal("unable to send update pkt");
 		updating = 1;
 	}
@@ -361,7 +360,7 @@ main(int argc, char **argv)
 	ARGBEGIN{
 	default:	usage();	break;
 	case 'a':	sendall++;	break;
-	case 'd':	chatty++;	break;
+	case 'd':	chattygit++;	break;
 	case 'r':
 		if(nremoved == nelem(removed))
 			sysfatal("too many deleted branches");
