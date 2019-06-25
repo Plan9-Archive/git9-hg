@@ -20,16 +20,6 @@ struct Compout {
 	DigestState *st;
 };
 
-
-enum {
-	Nproto	= 16,
-	Nport	= 16,
-	Nhost	= 256,
-	Npath	= 128,
-	Nrepo	= 64,
-	Nbranch	= 32,
-};
-
 struct Objq {
 	Objq *next;
 	Object *obj;
@@ -48,152 +38,12 @@ char *removed[128];
 int nremoved;
 
 static int
-readpkt(int fd, char *buf, int nbuf)
-{
-	char len[5];
-	char *e;
-	int n;
-
-	if(readn(fd, len, 4) == -1)
-		return -1;
-	len[4] = 0;
-	n = strtol(len, &e, 16);
-	if(n == 0)
-		return 0;
-	if(e != len + 4 || n <= 4)
-		sysfatal("invalid packet line length");
-	n  -= 4;
-	if(n >= nbuf)
-		sysfatal("buffer too small");
-	if(readn(fd, buf, n) != n)
-		return -1;
-	buf[n] = 0;
-	return n;
-}
-
-static int
 hwrite(int fd, void *buf, int nbuf, DigestState **st)
 {
 	if(write(fd, buf, nbuf) != nbuf)
 		return -1;
 	*st = sha1(buf, nbuf, nil, *st);
 	return nbuf;
-}
-
-int
-writepkt(int fd, char *buf, int nbuf)
-{
-	char len[5];
-
-	snprint(len, sizeof(len), "%04x", nbuf + 4);
-	if(write(fd, len, 4) != 4)
-		return -1;
-	if(write(fd, buf, nbuf) != nbuf)
-		return -1;
-	return 0;
-}
-
-int
-flushpkt(int fd)
-{
-	return write(fd, "0000", 4);
-}
-
-static void
-grab(char *dst, int n, char *p, char *e)
-{
-	int l;
-
-	l = e - p;
-	if(l >= n)
-		sysfatal("overlong component");
-	memcpy(dst, p, l);
-	dst[l + 1] = 0;
-
-}
-
-static int
-parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
-{
-	char *s, *p, *q;
-	int n;
-
-	p = strstr(uri, "://");
-	if(!p){
-		werrstr("missing protocol");
-		return -1;
-	}
-	grab(proto, Nproto, uri, p);
-	s = p + 3;
-
-	p = strstr(s, "/");
-	if(!p || strlen(p) == 1){
-		werrstr("missing path");
-		return -1;
-	}
-	q = memchr(s, ':', p - s);
-	if(q){
-		grab(host, Nhost, s, q);
-		grab(port, Nport, q + 1, p);
-	}else{
-		grab(host, Nhost, s, p);
-		snprint(port, Nport, "9418");
-	}
-	
-	snprint(path, Npath, "%s", p);
-	p = strrchr(p, '/') + 1;
-	if(!p || strlen(p) == 0){
-		werrstr("missing repository in uri");
-		return -1;
-	}
-	n = strlen(p);
-	if(hassuffix(p, ".git"))
-		n -= 4;
-	grab(repo, Nrepo, p, p + n);
-	return 0;
-}
-
-int
-dialssh(char *host, char *, char *path)
-{
-	int pid, pfd[2];
-
-	print("dialing via ssh %s...\n", host);
-	if(pipe(pfd) == -1)
-		sysfatal("unable to open pipe: %r");
-	pid = fork();
-	if(pid == -1)
-		sysfatal("unable to fork");
-	if(pid == 0){
-		close(pfd[1]);
-		dup(pfd[0], 0);
-		dup(pfd[0], 1);
-		execl("/bin/ssh", "ssh", host, "git-receive-pack", path, nil);
-	}else{
-		close(pfd[0]);
-		return pfd[1];
-	}
-	return -1;
-}
-
-int
-dialgit(char *host, char *port, char *path)
-{
-	char *ds, cmd[128];
-	int fd, l;
-
-	ds = netmkaddr(host, "tcp", port);
-	print("dialing %s...\n", ds);
-	fd = dial(ds, nil, nil, nil);
-	if(fd == -1)
-		return -1;
-	l = snprint(cmd, sizeof(cmd), "git-receive-pack %s", path);
-	if(writepkt(fd, cmd, l + 1) == -1){
-		print("failed to write message\n");
-		close(fd);
-		return -1;
-	}
-	return fd;
 }
 
 void
@@ -484,7 +334,7 @@ sendpack(int fd)
 		n = snprint(buf, sizeof(buf), "%H %H %s", u->theirs, u->ours, u->ref);
 		if(n >= sizeof(buf))
 			sysfatal("overlong update");
-		if(writepkt(fd, buf, n) == -1)
+		if(writepkt(fd, buf, n + 1) == -1)
 			sysfatal("unable to send update pkt");
 		updating = 1;
 	}

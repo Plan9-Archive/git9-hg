@@ -20,6 +20,13 @@ enum {
 	Cachemax=5*1024,
 	Pathmax=512,
 	Hashsz=20,
+
+	Nproto	= 16,
+	Nport	= 16,
+	Nhost	= 256,
+	Npath	= 128,
+	Nrepo	= 64,
+	Nbranch	= 32,
 };
 
 typedef enum Type {
@@ -176,6 +183,7 @@ struct Objset {
 extern Reprog *authorpat;
 extern Objset objcache;
 extern Hash Zhash;
+extern int chattygit;
 
 #pragma varargck type "H" Hash
 #pragma varargck type "T" Type
@@ -221,3 +229,10 @@ int	swapsuffix(char *, int, char *, char *, char *);
 char	*strip(char *);
 void	die(char *, ...);
 
+/* proto handling */
+int	readpkt(int, char*, int);
+int	writepkt(int, char*, int);
+int	flushpkt(int);
+int	parseuri(char *, char *, char *, char *, char *, char *);
+int	dialssh(char *, char *, char *);
+int	dialgit(char *, char *, char *);
