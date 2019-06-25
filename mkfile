@@ -26,6 +26,7 @@ OFILES=\
 	objset.$O\
 	ols.$O\
 	pack.$O\
+	proto.$O\
 	util.$O\
 	ref.$O
 

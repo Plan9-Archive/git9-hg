@@ -33,10 +33,6 @@ enum {
 	Internal=1<<7,
 };
 
-enum {
-	Npath = 64,
-};
-
 typedef struct Gitaux Gitaux;
 struct Gitaux {
 	int	 npath;
