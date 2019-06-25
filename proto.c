@@ -16,8 +16,11 @@ readpkt(int fd, char *buf, int nbuf)
 		return -1;
 	len[4] = 0;
 	n = strtol(len, &e, 16);
-	if(n == 0)
+	if(n == 0){
+		if(chattygit)
+			fprint(2, "readpkt: 0000\n");
 		return 0;
+	}
 	if(e != len + 4 || n <= 4)
 		sysfatal("invalid packet line length");
 	n  -= 4;
@@ -50,6 +53,8 @@ writepkt(int fd, char *buf, int nbuf)
 int
 flushpkt(int fd)
 {
+	if(chattygit)
+		fprint(2, "writepkt: 0000\n");
 	return write(fd, "0000", 4);
 }
 
