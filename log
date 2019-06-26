@@ -21,6 +21,6 @@ while(! ~$#commits 0){
 	commits=($commits(2-) `{cat $base/$c/parent >[2]/dev/null})
 	if(! ~ $#commits 0)
 		commits=`{mtime $base^$commits |
-			sort -rn | uniq -u |
+			sort -rn | uniq |
 			awk -F/ '{print $NF}'}
 }
