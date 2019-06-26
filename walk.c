@@ -251,6 +251,8 @@ main(int argc, char **argv)
 	r.path = nil;
 	r.npath = 0;
 	r.pathsz = 0;
+	if(access("/mnt/git/ctl", AEXIST) != 0)
+		sysfatal("git/fs does not seem to be running");
 	if(printflg == 0)
 		printflg = Tflg | Aflg | Mflg | Rflg;
 	if(access(TDIR, AEXIST) == 0 && readpaths(&r, TDIR, "") == -1)
