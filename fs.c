@@ -547,6 +547,8 @@ gitclone(Fid *o, Fid *n)
 		if(aux->opath[i])
 			ref(aux->opath[i]);
 	}
+	if(oaux->refpath)
+		aux->refpath = strdup(oaux->refpath);
 	if(oaux->obj)
 		aux->obj = ref(oaux->obj);
 	aux->qdir = oaux->qdir;
