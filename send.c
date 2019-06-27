@@ -291,7 +291,7 @@ sendpack(int fd)
 	char buf[65536];
 	char *sp[3];
 	Update *upd, *u;
-	int i, n, nupd, updating;
+	int i, n, nupd, nsp, updating;
 
 	if((nupd = readours(&upd)) == -1)
 		sysfatal("read refs: %r");
@@ -331,15 +331,46 @@ sendpack(int fd)
 		}
 		print("%s: %H => %H\n", u->ref, u->theirs, u->ours);
 		n = snprint(buf, sizeof(buf), "%H %H %s", u->theirs, u->ours, u->ref);
-		if(n >= sizeof(buf))
-			sysfatal("overlong update");
+		/*
+		 * Workaround for github.
+		 *
+		 * Github will accept the pack but fail to update the references
+		 * if we don't have capabilities advertised. Report-status seems
+		 * harmless to add, so we add it.
+		 *
+		 * Github doesn't advertise any capabilities, so we can't check
+		 * for compatibility. We just need to add it blindly.
+		 */
+		if(i == 0){
+			buf[n++] = '\0';
+			n += snprint(buf + n, sizeof(buf) - n, " report-status");
+		}
 		if(writepkt(fd, buf, n) == -1)
 			sysfatal("unable to send update pkt");
 		updating = 1;
 	}
 	flushpkt(fd);
-	if(updating)
-		return writepack(fd, upd, nupd);
+	if(updating){
+		if(writepack(fd, upd, nupd) == -1)
+			return -1;
+
+		/* We asked for a status report, may as well use it. */
+		while((n = readpkt(fd, buf, sizeof(buf))) > 0){
+			buf[n] = 0;
+			sp[2] = "";
+			nsp = getfields(buf, sp, nelem(sp), 1, " \t\n\r");
+			if(nsp < 2)
+				continue;
+			if(nsp == 2)
+				sp[2] = "";
+			if(strcmp(sp[0], "unpack") == 0)
+				fprint(2, "unpack: %s\n", sp[1]);
+			else if(strcmp(sp[0], "ok") == 0)
+				fprint(2, "%s: updated\n", sp[1]);
+			else if(strcmp(sp[0], "ng") == 0)
+				fprint(2, "%s: failed update: %s\n", sp[1], sp[2]);
+		}
+	}
 	return 0;
 }
 

@@ -30,7 +30,7 @@ readpkt(int fd, char *buf, int nbuf)
 		return -1;
 	buf[n] = 0;
 	if(chattygit)
-		fprint(2, "readpkt: %s:\t%s\n", len, buf);
+		fprint(2, "readpkt: %s:\t%.*s\n", len, nbuf, buf);
 	return n;
 }
 
@@ -45,8 +45,11 @@ writepkt(int fd, char *buf, int nbuf)
 		return -1;
 	if(write(fd, buf, nbuf) != nbuf)
 		return -1;
-	if(chattygit)
-		fprint(2, "writepkt: %s:\t%.*s\n", len, nbuf, buf);
+	if(chattygit){
+		fprint(2, "writepkt: %s:\t", len);
+		write(2, buf, nbuf);
+		write(2, "\n", 1);
+	}
 	return 0;
 }
 
@@ -148,7 +151,7 @@ dialgit(char *host, char *port, char *path, char *direction)
 	fd = dial(ds, nil, nil, nil);
 	if(fd == -1)
 		return -1;
-	l = snprint(cmd, sizeof(cmd), "git-%s-pack %s", direction, path);
+	l = snprint(cmd, sizeof(cmd), "git-%s-pack %s\n", direction, path);
 	if(writepkt(fd, cmd, l + 1) == -1){
 		print("failed to write message\n");
 		close(fd);
