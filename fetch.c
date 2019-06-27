@@ -269,9 +269,9 @@ main(int argc, char **argv)
 	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
 		sysfatal("bad uri %s", argv[0]);
 	if(strcmp(proto, "ssh") == 0 || strcmp(proto, "git+ssh") == 0)
-		fd = dialssh(host, port, path);
+		fd = dialssh(host, port, path, "upload");
 	else if(strcmp(proto, "git") == 0)
-		fd = dialgit(host, port, path);
+		fd = dialgit(host, port, path, "upload");
 	else if(strcmp(proto, "http") == 0 || strcmp(proto, "git+http") == 0)
 		sysfatal("http clone not implemented");
 	else
