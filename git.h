@@ -234,5 +234,5 @@ int	readpkt(int, char*, int);
 int	writepkt(int, char*, int);
 int	flushpkt(int);
 int	parseuri(char *, char *, char *, char *, char *, char *);
-int	dialssh(char *, char *, char *);
-int	dialgit(char *, char *, char *);
+int	dialssh(char *, char *, char *, char *);
+int	dialgit(char *, char *, char *, char *);

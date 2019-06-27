@@ -113,9 +113,10 @@ parseuri(char *uri, char *proto, char *host, char *port, char *path, char *repo)
 }
 
 int
-dialssh(char *host, char *, char *path)
+dialssh(char *host, char *, char *path, char *direction)
 {
 	int pid, pfd[2];
+	char cmd[64];
 
 	print("dialing via ssh %s...\n", host);
 	if(pipe(pfd) == -1)
@@ -127,7 +128,8 @@ dialssh(char *host, char *, char *path)
 		close(pfd[1]);
 		dup(pfd[0], 0);
 		dup(pfd[0], 1);
-		execl("/bin/ssh", "ssh", host, "git-receive-pack", path, nil);
+		snprint(cmd, sizeof(cmd), "git-%s-pack", direction);
+		execl("/bin/ssh", "ssh", host, cmd, path, nil);
 	}else{
 		close(pfd[0]);
 		return pfd[1];
@@ -136,7 +138,7 @@ dialssh(char *host, char *, char *path)
 }
 
 int
-dialgit(char *host, char *port, char *path)
+dialgit(char *host, char *port, char *path, char *direction)
 {
 	char *ds, cmd[128];
 	int fd, l;
@@ -146,7 +148,7 @@ dialgit(char *host, char *port, char *path)
 	fd = dial(ds, nil, nil, nil);
 	if(fd == -1)
 		return -1;
-	l = snprint(cmd, sizeof(cmd), "git-receive-pack %s", path);
+	l = snprint(cmd, sizeof(cmd), "git-%s-pack %s", direction, path);
 	if(writepkt(fd, cmd, l + 1) == -1){
 		print("failed to write message\n");
 		close(fd);
