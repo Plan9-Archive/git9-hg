@@ -30,6 +30,22 @@ eatspace(Eval *ev)
 		ev->p++;
 }
 
+int
+objdatecmp(void *pa, void *pb)
+{
+	Object *a, *b;
+
+	a = *(Object**)pa;
+	b = *(Object**)pb;
+	assert(a->type == GCommit && b->type == GCommit);
+	if(a->commit->mtime == b->commit->mtime)
+		return 0;
+	else if(a->commit->mtime < b->commit->mtime)
+		return -1;
+	else
+		return 1;
+}
+
 void
 push(Eval *ev, Object *o)
 {
@@ -193,10 +209,76 @@ parent(Eval *ev)
 }
 
 int
-range(Eval *)
+unwind(Eval *ev, Object **obj, int *idx, int nobj, Object **p, Objset *set, int keep)
 {
-	werrstr("unimplemented");
+	int i;
+
+	for(i = nobj; i >= 0; i--){
+		idx[i]++;
+		if(keep && !oshas(set, obj[i])){
+			push(ev, obj[i]);
+			osadd(set, obj[i]);
+		}else{
+			osadd(set, obj[i]);
+		}
+		if(idx[i] < obj[i]->commit->nparent){
+			*p = obj[i];
+			return i;
+		}
+	}
 	return -1;
+}
+
+int
+range(Eval *ev)
+{
+	Object *a, *b, *p, **all;
+	int nall, *idx, mark;
+	Objset keep, skip;
+
+	b = pop(ev);
+	a = pop(ev);
+	if(a->type != GCommit || b->type != GCommit){
+		werrstr("non-commit object in range");
+		return -1;
+	}
+
+	p = b;
+	all = nil;
+	idx = nil;
+	nall = 0;
+	mark = ev->nstk;
+	osinit(&keep);
+	osinit(&skip);
+	while(1){
+		all = erealloc(all, (nall + 1)*sizeof(Object*));
+		idx = erealloc(idx, (nall + 1)*sizeof(int));
+		all[nall] = p;
+		idx[nall] = 0;
+		if(p == a){
+			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
+				break;
+		}
+		else if(p->commit->nparent == 0){
+			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
+				break;
+		}
+		else if(oshas(&keep, p)){
+			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
+				break;
+		}
+		else if(oshas(&skip, p)){
+			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
+				break;
+		}
+
+		if((p = readobject(p->commit->parent[idx[nall]])) == nil)
+			sysfatal("bad commit %H", p->commit->parent[idx[nall]]);
+		nall++;
+	}
+	free(all);
+	qsort(ev->stk + mark, ev->nstk - mark, sizeof(Object*), objdatecmp);
+	return 0;
 }
 
 int
