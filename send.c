@@ -331,6 +331,7 @@ sendpack(int fd)
 		}
 		print("%s: %H => %H\n", u->ref, u->theirs, u->ours);
 		n = snprint(buf, sizeof(buf), "%H %H %s", u->theirs, u->ours, u->ref);
+
 		/*
 		 * Workaround for github.
 		 *
@@ -359,16 +360,16 @@ sendpack(int fd)
 			buf[n] = 0;
 			sp[2] = "";
 			nsp = getfields(buf, sp, nelem(sp), 1, " \t\n\r");
-			if(nsp < 2)
+			if(nsp < 2) 
 				continue;
 			if(nsp == 2)
 				sp[2] = "";
-			if(strcmp(sp[0], "unpack") == 0)
-				fprint(2, "unpack: %s\n", sp[1]);
+			if(strcmp(sp[0], "unpack") == 0 && strcmp(sp[1], "ok") != 0)
+				fprint(2, "%s\n", buf);
 			else if(strcmp(sp[0], "ok") == 0)
 				fprint(2, "%s: updated\n", sp[1]);
 			else if(strcmp(sp[0], "ng") == 0)
-				fprint(2, "%s: failed update: %s\n", sp[1], sp[2]);
+				fprint(2, "failed update: %s\n", buf);
 		}
 	}
 	return 0;

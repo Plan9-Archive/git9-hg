@@ -124,10 +124,38 @@ tracked(char *path)
 }
 
 int
+dircmp(void *pa, void *pb)
+{
+	char aname[256], bname[256], c;
+	Dir *a, *b;
+
+	a = pa;
+	b = pb;
+	/*
+	 * If the files have the same name, they're equal.
+	 * Otherwise, If they're trees, they sort as thoug
+	 * there was a trailing slash.
+	 *
+	 * Wat.
+	 */
+	if(strcmp(a->name, b->name) == 0){
+		snprint(aname, sizeof(aname), "%s", a->name);
+		snprint(bname, sizeof(bname), "%s", b->name);
+	}else{
+		c = (a->qid.type & QTDIR) ? '/' : 0;
+		snprint(aname, sizeof(aname), "%s%c", a->name, c);
+		c = (b->qid.type & QTDIR) ? '/' : 0;
+		snprint(bname, sizeof(bname), "%s%c", b->name, c);
+	}
+
+	return strcmp(aname, bname);
+}
+
+int
 treeify(char *path, Hash *th)
 {
 	char *t, h[64], l[256], ep[256];
-	int nd, nl, nt, nh, i, s, isdir;
+	int nd, nl, nt, nh, i, s;
 	Hash eh;
 	Dir *d;
 		
@@ -138,6 +166,7 @@ treeify(char *path, Hash *th)
 
 	t = nil;
 	nt = 0;
+	qsort(d, nd, sizeof(Dir), dircmp);
 	for(i = 0; i < nd; i++){
 		snprint(ep, sizeof(ep), "%s/%s", path, d[i].name);
 		if(strcmp(ep, "./.git") == 0)
