@@ -127,7 +127,7 @@ int
 treeify(char *path, Hash *th)
 {
 	char *t, h[64], l[256], ep[256];
-	int nd, nl, nt, nh, i, s;
+	int nd, nl, nt, nh, i, s, isdir;
 	Hash eh;
 	Dir *d;
 		
@@ -140,16 +140,18 @@ treeify(char *path, Hash *th)
 	nt = 0;
 	for(i = 0; i < nd; i++){
 		snprint(ep, sizeof(ep), "%s/%s", path, d[i].name);
-		if(!tracked(ep))
+		if(strcmp(ep, "./.git") == 0)
 			continue;
 		if(d[i].qid.type & QTDIR){
 			if(treeify(ep, &eh) == 0)
 				continue;
-		}else
+		}else{
+			if(!tracked(ep))
+				continue;
 			blobify(ep, d[i].length, &eh);
+		}
 
-		if((nl = snprint(l, sizeof(l), "%o %s", gitmode(d[i].mode), d[i].name)) >= sizeof(l))
-			sysfatal("overlong name %s", ep);
+		nl = snprint(l, sizeof(l), "%o %s", gitmode(d[i].mode), d[i].name);
 		s = nt + nl + sizeof(eh.h) + 1;
 		t = realloc(t, s);
 		memcpy(t + nt, l, nl + 1);
@@ -161,6 +163,7 @@ treeify(char *path, Hash *th)
 	if(nh >= sizeof(h))
 		sysfatal("overlong header");
 	writeobj(th, h, nh, t, nt);
+	free(t);
 	return nd;
 }
 
