@@ -255,22 +255,18 @@ range(Eval *ev)
 		idx = erealloc(idx, (nall + 1)*sizeof(int));
 		all[nall] = p;
 		idx[nall] = 0;
-		if(p == a){
+		if(p == a)
 			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
 				break;
-		}
-		else if(p->commit->nparent == 0){
+		else if(p->commit->nparent == 0)
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
-		}
-		else if(oshas(&keep, p)){
+		else if(oshas(&keep, p))
 			if((nall = unwind(ev, all, idx, nall, &p, &keep, 1)) == -1)
 				break;
-		}
-		else if(oshas(&skip, p)){
+		else if(oshas(&skip, p))
 			if((nall = unwind(ev, all, idx, nall, &p, &skip, 0)) == -1)
 				break;
-		}
 
 		if((p = readobject(p->commit->parent[idx[nall]])) == nil)
 			sysfatal("bad commit %H", p->commit->parent[idx[nall]]);
