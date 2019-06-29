@@ -289,7 +289,7 @@ int
 sendpack(int fd)
 {
 	char buf[65536];
-	char *sp[3];
+	char *sp[3], *p;
 	Update *upd, *u;
 	int i, n, nupd, nsp, updating;
 
@@ -357,16 +357,18 @@ sendpack(int fd)
 
 		/* We asked for a status report, may as well use it. */
 		while((n = readpkt(fd, buf, sizeof(buf))) > 0){
-			buf[n] = 0;
-			nsp = getfields(buf, sp, 2, 1, " \t\n\r");
+ 			buf[n] = 0;
+			nsp = getfields(buf, sp, nelem(sp), 1, " \t\n\r");
 			if(nsp < 2) 
 				continue;
+			if(nsp < 3)
+				sp[2] = "";
 			if(strcmp(sp[0], "unpack") == 0 && strcmp(sp[1], "ok") != 0)
-				fprint(2, "%s\n", buf);
+				fprint(2, "unpack %s\n", sp[1]);
 			else if(strcmp(sp[0], "ok") == 0)
 				fprint(2, "%s: updated\n", sp[1]);
 			else if(strcmp(sp[0], "ng") == 0)
-				fprint(2, "failed update: %s\n", buf);
+				fprint(2, "failed update: %s\n", sp[1]);
 		}
 	}
 	return 0;
