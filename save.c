@@ -103,14 +103,18 @@ blobify(char *path, vlong size, Hash *bh)
 int
 tracked(char *path)
 {
+	Dir *d;
 	char ipath[256];
 
 	/* Explicitly removed. */
 	snprint(ipath, sizeof(ipath), ".git/index9/removed/%s", path);
 	if(strstr(cleanname(ipath), ".git/index9/removed") != ipath)
 		sysfatal("path %s leaves index", ipath);
-	if(access(ipath, AEXIST) == 0)
+	d = dirstat(ipath);
+	if(d != nil && d->qid.type != QTDIR){
+		free(d);
 		return 0;
+	}
 
 	/* Explicitly added. */
 	snprint(ipath, sizeof(ipath), ".git/index9/tracked/%s", path);
@@ -119,7 +123,6 @@ tracked(char *path)
 	if(access(ipath, AEXIST) == 0)
 		return 1;
 
-	/* Default. */
 	return 0;
 }
 
@@ -169,16 +172,14 @@ treeify(char *path, Hash *th)
 	qsort(d, nd, sizeof(Dir), dircmp);
 	for(i = 0; i < nd; i++){
 		snprint(ep, sizeof(ep), "%s/%s", path, d[i].name);
-		if(strcmp(ep, "./.git") == 0)
+		if(strcmp(d[i].name, ".git") == 0)
 			continue;
-		if(d[i].qid.type & QTDIR){
-			if(treeify(ep, &eh) == 0)
-				continue;
-		}else{
-			if(!tracked(ep))
-				continue;
+		if(!tracked(ep))
+			continue;
+		if((d[i].qid.type & QTDIR) == 0)
 			blobify(ep, d[i].length, &eh);
-		}
+		else if(treeify(ep, &eh) == 0)
+			continue;
 
 		nl = snprint(l, sizeof(l), "%o %s", gitmode(d[i].mode), d[i].name);
 		s = nt + nl + sizeof(eh.h) + 1;
