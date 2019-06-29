@@ -358,12 +358,9 @@ sendpack(int fd)
 		/* We asked for a status report, may as well use it. */
 		while((n = readpkt(fd, buf, sizeof(buf))) > 0){
 			buf[n] = 0;
-			sp[2] = "";
-			nsp = getfields(buf, sp, nelem(sp), 1, " \t\n\r");
+			nsp = getfields(buf, sp, 2, 1, " \t\n\r");
 			if(nsp < 2) 
 				continue;
-			if(nsp == 2)
-				sp[2] = "";
 			if(strcmp(sp[0], "unpack") == 0 && strcmp(sp[1], "ok") != 0)
 				fprint(2, "%s\n", buf);
 			else if(strcmp(sp[0], "ok") == 0)
@@ -408,7 +405,7 @@ main(int argc, char **argv)
 		usage();
 	fd = -1;
 	if(parseuri(argv[0], proto, host, port, path, repo) == -1)
-		sysfatal("bad uri %s", argv0);
+		sysfatal("bad uri %s", argv[0]);
 	if(strcmp(proto, "ssh") == 0 || strcmp(proto, "git+ssh") == 0)
 		fd = dialssh(host, port, path, "receive");
 	else if(strcmp(proto, "git") == 0)
